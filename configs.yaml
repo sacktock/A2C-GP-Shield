@@ -1,0 +1,625 @@
+defaults:
+
+  seed: 0
+  logdir: ./logdir/
+  tensorboard: False
+  record_video: False
+
+  run:  
+    prefill: 400
+    prefill_policy: backup
+    num_frames: 1000
+    post_hoc_frames: 4000
+    train_ratio: 64
+    log_every: 200
+    logger_window_size: 100
+
+  env:
+    env_id: cartpole
+    reward_id: rew_v1
+    max_episode_steps: 200
+    obs_noise: 1e-6
+
+  shield:
+    lookahead: 20
+    sigma_coef: 3.82
+    num_samples: 10
+    
+  gp:
+    learning_rate: 0.01
+    num_optim_iters: 100
+    batch_size: 64
+    buffer_size: 1000
+    sparse: False
+    collapsed: False
+    num_inducing_inputs: 500
+
+  ac:
+    actor: {n_units: 64, log_std_init: 0.0}
+    actor_opt: {opt: adam, learning_rate: 3e-4, max_grad_norm: 0.5, eps: 1e-5}
+    buffer: {size: 1000, alpha: 0.6, beta_start: 0.4, beta_frames: 200, type: default, n_bins: 32}
+
+    num_posterior_samples: 5
+    num_particles: 32
+    rollout_steps: 16
+    truncate_unsafe: False
+    penalize_unsafe: False
+    penalty_coef: 1.0
+    num_optim_iters: 10
+    prefill_optim_iters: 10
+    normalize_obs: False
+    normalize_adv: False
+    
+    ent_coef: 0.05
+
+    critic_scales: {extr: 1.0, intr: 0.0}
+
+    extr:
+      critic: {n_units: 64}
+      critic_opt: {opt: adam, learning_rate: 1e-3, max_grad_norm: 0.5, eps: 1e-5}
+      retnorm: {impl: perc_ema, decay: 0.01, max: 1e8, perclo: 5, perchi: 95, eps: 0.0}
+      gamma: 0.99
+      gae_lambda: 0.95
+      polyak_tau: 0.02
+      slow_reg_coef: 1.0
+      
+    intr:
+      critic: {n_units: 64}
+      critic_opt: {opt: adam, learning_rate: 1e-3, max_grad_norm: 0.5, eps: 1e-5}
+      retnorm: {impl: perc_ema, decay: 0.01, max: 1e8, perclo: 5, perchi: 95, eps: 0.0}
+      gamma: 0.99
+      gae_lambda: 0.95
+      polyak_tau: 0.02
+      slow_reg_coef: 1.0
+
+test:
+
+  run:
+    prefill: 1000
+    prefill_policy: random
+
+  shield:
+    num_samples: 5000
+
+  gp:
+    # decrease learning rate and increase iters???
+    learning_rate: 0.001
+    num_optim_iters: 5000
+    batch_size: -1
+    buffer_size: 1000
+    sparse: False
+    collapsed: False
+
+test2:
+
+  run:
+    prefill: 5000
+    prefill_policy: random
+
+  shield:
+    num_samples: 5000
+
+  gp:
+    learning_rate: 0.001
+    num_optim_iters: 20000
+    batch_size: -1
+    buffer_size: 5000
+    num_inducing_inputs: 500
+    sparse: True
+    collapsed: True
+
+cartpole:
+
+  run:
+    prefill: 400
+    num_frames: 5000
+    post_hoc_frames: 4000
+    train_ratio: 64
+    log_every: 200
+    logger_window_size: 1
+
+  env:
+    env_id: cartpole
+    max_episode_steps: 200
+
+  shield:
+    lookahead: 100
+    sigma_coef: 3.82
+
+  gp:
+    num_optim_iters: 500
+    batch_size: -1
+    buffer_size: 10000
+    num_inducing_inputs: 500
+    sparse: True
+    collapsed: True
+
+  ac:
+    buffer: {size: 5000}
+
+cartpole_v2:
+
+  run:
+    prefill: 1000
+    prefill_policy: random
+    num_frames: 10000
+    post_hoc_frames: 4000
+    train_ratio: 64
+    log_every: 200
+    logger_window_size: 1
+  
+  env:
+    env_id: cartpole
+    max_episode_steps: 200
+    reward_id: rew_v2
+
+  shield:
+    lookahead: 100
+    sigma_coef: 3.82
+
+  gp:
+    num_optim_iters: 500
+    batch_size: -1
+    buffer_size: 10000
+    num_inducing_inputs: 500
+    sparse: True
+    collapsed: True
+
+  ac:
+    buffer: {size: 10000, beta_frames: 2000, type: novelty}
+
+    num_optim_iters: 20
+    prefill_optim_iters: 20
+
+    normalize_adv: True
+
+    extr:
+      retnorm: {impl: mean_std, decay: 1.0, eps: 1e-5}
+
+cartpole_v3:
+
+  run:
+    prefill: 1000
+    prefill_policy: random
+    num_frames: 10000
+    post_hoc_frames: 4000
+    train_ratio: 64
+    log_every: 200
+    logger_window_size: 1
+  
+  env:
+    env_id: cartpole
+    max_episode_steps: 200
+    reward_id: rew_v3
+
+  shield:
+    lookahead: 100
+    sigma_coef: 3.82
+
+  gp:
+    num_optim_iters: 500
+    batch_size: -1
+    buffer_size: 10000
+    num_inducing_inputs: 500
+    sparse: True
+    collapsed: True
+
+  ac:
+    buffer: {size: 10000, beta_frames: 2000, type: novelty}
+
+    num_optim_iters: 20
+    prefill_optim_iters: 20
+
+    normalize_adv: True
+
+    extr:
+      retnorm: {impl: mean_std, decay: 1.0, eps: 1e-5}
+
+mountain_car:
+
+  run:
+    prefill: 1000
+    prefill_policy: random
+    num_frames: 10000
+    post_hoc_frames: 20000
+    train_ratio: 400
+    log_every: 1000
+    logger_window_size: 5
+
+  env:
+    env_id: mountain_car
+    max_episode_steps: 1000
+
+  shield:
+    lookahead: 80
+    sigma_coef: 3.82
+
+  gp:
+    num_optim_iters: 500
+    batch_size: -1
+    buffer_size: 10000
+    num_inducing_inputs: 500
+    sparse: True
+    collapsed: True
+
+  ac:
+    actor_opt: {learning_rate: 1e-4}
+    buffer: {size: 10000, beta_frames: 2000, type: novelty}
+
+    num_optim_iters: 100
+    prefill_optim_iters: 100
+
+    normalize_adv: True
+    normalize_obs: True
+
+    critic_scales: {extr: 1.0, intr: 0.0}
+
+    extr:
+      critic_opt: {learning_rate: 3e-4}
+      retnorm: {impl: mean_std, decay: 1.0, eps: 1e-5}
+      gamma: 0.997
+
+obstacle:
+
+  run:
+    prefill: 1000
+    prefill_policy: random
+    num_frames: 5000
+    post_hoc_frames: 4000
+    train_ratio: 64
+    log_every: 200
+    logger_window_size: 2
+
+  env:
+    env_id: obstacle
+    max_episode_steps: 200
+
+  shield:
+    lookahead: 20
+    sigma_coef: 3.82
+
+  gp:
+    num_optim_iters: 1000
+    batch_size: -1
+    buffer_size: 5000
+    num_inducing_inputs: 500
+    sparse: True
+    collapsed: True
+
+  ac:
+    truncate_unsafe: True
+
+    num_optim_iters: 20
+    prefill_optim_iters: 20
+
+    normalize_adv: True
+    normalize_obs: True
+
+    buffer: {size: 5000}
+
+    extr:
+      retnorm: {impl: mean_std, decay: 1.0, eps: 1e-5}
+
+obstacle2:
+
+  run:
+    prefill: 1000
+    prefill_policy: random
+    num_frames: 10000
+    post_hoc_frames: 4000
+    train_ratio: 128
+    log_every: 200
+    logger_window_size: 2
+
+  env:
+    env_id: obstacle2
+    max_episode_steps: 200
+
+  shield:
+    lookahead: 40
+    sigma_coef: 3.82
+
+  gp:
+    num_optim_iters: 1000
+    batch_size: -1
+    buffer_size: 10000
+    num_inducing_inputs: 500
+    sparse: True
+    collapsed: True
+
+  ac:
+    actor_opt: {learning_rate: 1e-4}
+    truncate_unsafe: True
+
+    num_optim_iters: 40
+    prefill_optim_iters: 40
+
+    normalize_adv: True
+    normalize_obs: True
+
+    buffer: {size: 10000, beta_frames: 2000, type: novelty}
+
+    extr:
+      critic_opt: {learning_rate: 3e-4}
+      retnorm: {impl: mean_std, decay: 1.0, eps: 1e-5}
+
+obstacle3:
+
+  run:
+    prefill: 1000
+    prefill_policy: random
+    num_frames: 10000
+    post_hoc_frames: 4000
+    train_ratio: 128
+    log_every: 200
+    logger_window_size: 2
+
+  env:
+    env_id: obstacle3
+    max_episode_steps: 200
+
+  shield:
+    lookahead: 40
+    sigma_coef: 3.82
+
+  gp:
+    num_optim_iters: 1000
+    batch_size: -1
+    buffer_size: 10000
+    num_inducing_inputs: 500
+    sparse: True
+    collapsed: True
+
+  ac:
+    actor_opt: {learning_rate: 1e-4}
+    truncate_unsafe: True
+
+    num_optim_iters: 40
+    prefill_optim_iters: 40
+
+    normalize_adv: True
+    normalize_obs: True
+
+    buffer: {size: 10000, beta_frames: 2000, type: novelty}
+
+    extr:
+      critic_opt: {learning_rate: 3e-4}
+      retnorm: {impl: mean_std, decay: 1.0, eps: 1e-5}
+
+obstacle4:
+
+  run:
+    prefill: 1000
+    prefill_policy: random
+    num_frames: 10000
+    post_hoc_frames: 4000
+    train_ratio: 128
+    log_every: 200
+    logger_window_size: 2
+
+  env:
+    env_id: obstacle4
+    max_episode_steps: 200
+
+  shield:
+    lookahead: 40
+    sigma_coef: 3.82
+
+  gp:
+    num_optim_iters: 1000
+    batch_size: -1
+    buffer_size: 10000
+    num_inducing_inputs: 500
+    sparse: True
+    collapsed: True
+
+  ac:
+    actor_opt: {learning_rate: 1e-4}
+    truncate_unsafe: True
+
+    num_optim_iters: 40
+    prefill_optim_iters: 40
+
+    normalize_adv: True
+    normalize_obs: True
+
+    buffer: {size: 10000, beta_frames: 2000, type: novelty}
+
+    extr:
+      critic_opt: {learning_rate: 3e-4}
+      retnorm: {impl: mean_std, decay: 1.0, eps: 1e-5}
+
+hopper:
+
+  run:
+    prefill: 1000
+    prefill_policy: random
+    num_frames: 10000
+    post_hoc_frames: 1000
+    train_ratio: 128
+    log_every: 1000
+    logger_window_size: 2
+
+  env:
+    env_id: hopper
+    max_episode_steps: 1000
+
+  shield:
+    lookahead: 100
+    sigma_coef: 3.82
+
+  gp:
+    num_optim_iters: 500
+    batch_size: -1
+    buffer_size: 5000
+    num_inducing_inputs: 500
+    sparse: True
+    collapsed: True
+
+  ac:
+    actor_opt: {opt: rms_prop, learning_rate: 7e-4}
+
+    normalize_adv: False
+    normalize_obs: False
+
+    buffer: {size: 8128}
+
+    ent_coef: 0.0
+
+    num_posterior_samples: 4
+    num_particles: 32
+    rollout_steps: 5
+    num_optim_iters: 6
+    prefill_optim_iters: 50
+    
+    critic_scales: {extr: 1.0, intr: 0.0}
+
+    extr:
+      critic_opt: {opt: rms_prop, learning_rate: 7e-4}
+      retnorm: {impl: none}
+      gamma: 0.99
+      gae_lambda: 1.0
+      polyak_tau: 0.02
+      slow_reg_coef: 1.0
+
+road:
+
+  run:
+    prefill: 400
+    prefill_policy: random
+    num_frames: 5000
+    post_hoc_frames: 4000
+    train_ratio: 64
+    log_every: 200
+    logger_window_size: 2
+
+  env:
+    env_id: road
+    max_episode_steps: 200
+
+  shield:
+    lookahead: 5
+    sigma_coef: 3.82
+
+  gp:
+    num_optim_iters: 500
+    batch_size: -1
+    buffer_size: 5000
+    num_inducing_inputs: 500
+    sparse: True
+    collapsed: True
+
+  ac:
+    actor_opt: {learning_rate: 1e-4}
+    truncate_unsafe: True
+
+    normalize_adv: True
+    normalize_obs: True
+
+    buffer: {size: 5000}
+
+    extr:
+      critic_opt: {learning_rate: 3e-4}
+      retnorm: {impl: mean_std, decay: 1.0, eps: 1e-5}
+
+road_2d:
+
+  run:
+    prefill: 400
+    prefill_policy: random
+    num_frames: 5000
+    post_hoc_frames: 4000
+    train_ratio: 64
+    log_every: 200
+    logger_window_size: 2
+
+  env:
+    env_id: road_2d
+    max_episode_steps: 200
+
+  shield:
+    lookahead: 5
+    sigma_coef: 3.82
+
+  gp:
+    num_optim_iters: 500
+    batch_size: -1
+    buffer_size: 5000
+    num_inducing_inputs: 500
+    sparse: True
+    collapsed: True
+
+  ac:
+    actor_opt: {learning_rate: 1e-4}
+    truncate_unsafe: True
+
+    num_optim_iters: 20
+    prefill_optim_iters: 20
+
+    normalize_adv: True
+    normalize_obs: True
+
+    buffer: {size: 5000}
+
+    extr:
+      critic_opt: {learning_rate: 3e-4}
+      retnorm: {impl: mean_std, decay: 1.0, eps: 1e-5}
+
+mountain_car_short:
+
+  run:
+    prefill: 400
+    prefill_policy: random
+    num_frames: 10000
+    post_hoc_frames: 4000
+    train_ratio: 64
+    log_every: 200
+    logger_window_size: 2
+
+  env:
+    env_id: mountain_car
+    max_episode_steps: 200
+
+  shield:
+    lookahead: 50
+    sigma_coef: 3.82
+
+  gp:
+    num_optim_iters: 500
+    batch_size: -1
+    buffer_size: 10000
+    num_inducing_inputs: 500
+    sparse: True
+    collapsed: True
+
+  ac:
+    actor_opt: {learning_rate: 1e-4}
+    buffer: {size: 10000, beta_frames: 2000, type: novelty}
+
+    num_optim_iters: 20
+    prefill_optim_iters: 20
+
+    normalize_adv: True
+    normalize_obs: True
+
+    critic_scales: {extr: 1.0, intr: 0.1}
+
+    extr:
+      critic_opt: {learning_rate: 3e-4}
+      retnorm: {impl: mean_std, decay: 1.0, eps: 1e-5}
+      gamma: 0.99
+
+    intr:
+      critic_opt: {learning_rate: 3e-4}
+      retnorm: {impl: mean_std, decay: 1.0, eps: 1e-5}
+      gamma: 0.99
+
+
+
+
+
+
+
+
+    
+  

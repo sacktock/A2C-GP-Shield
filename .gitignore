@@ -1,0 +1,6 @@
+.venv
+__pycache__
+videos/
+logdir/
+runs/
+*.egg-info
