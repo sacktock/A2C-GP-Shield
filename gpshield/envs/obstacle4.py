@@ -1,6 +1,6 @@
-from envs.base import BaseEnv 
+from gpshield.envs.base import BaseEnv 
 import numpy as np
-from agents import Linear_Agent
+from gpshield.agents import Linear_Agent
 
 class ContinuousObstacle4(BaseEnv):
 

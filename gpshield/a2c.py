@@ -1,4 +1,4 @@
-from agents import JAXAgent
+from gpshield.agents import JAXAgent
 from dataclasses import field
 from typing import Any, Callable, Dict, List, Optional, Sequence, Union
 import flax.linen as nn
@@ -11,12 +11,12 @@ from flax.linen.initializers import constant
 from flax.training.train_state import TrainState
 import jax.random as jr
 from jax import jit
-import gym
+import gymnasium
 import numpy as np
 from functools import partial
-from agents import squash_sin
-from moments import Moments
-from common.stats import Summary_Stats
+from gpshield.agents import squash_sin
+from gpshield.moments import Moments
+from gpshield.common.stats import Summary_Stats
 
 tfd = tfp.distributions
 
@@ -70,8 +70,8 @@ class RolloutBuffer():
     def __init__(self, buffer_size, observation_space, action_space, n_envs, critics, device='auto', gae_lambda={'extr': 1., 'intr': 1.}, gamma={'extr': 0.99, 'intr': 0.99}):
 
         assert type(buffer_size) is int
-        assert isinstance(observation_space, gym.spaces.Box)
-        assert isinstance(action_space, gym.spaces.Box) or isinstance(action_space, gym.spaces.Discrete)
+        assert isinstance(observation_space, gymnasium.spaces.Box)
+        assert isinstance(action_space, gymnasium.spaces.Box) or isinstance(action_space, gymnasium.spaces.Discrete)
         assert type(n_envs) is int
         assert type(device) is str
         assert type(n_envs) is int
@@ -90,9 +90,9 @@ class RolloutBuffer():
         self.pos = 0
         self.full = False
 
-        if isinstance(self.action_space, gym.spaces.Box):
+        if isinstance(self.action_space, gymnasium.spaces.Box):
             self.action_dim = int(np.prod(self.action_space.shape))
-        elif isinstance(self.action_space, gym.spaces.Discrete):
+        elif isinstance(self.action_space, gymnasium.spaces.Discrete):
             self.action_dim = int(self.action_space.n)
         else:
             raise NotImplementedError
@@ -292,8 +292,8 @@ class A2C_Agent(JAXAgent):
     ):
 
         assert isinstance(key, jax._src.prng.PRNGKeyArray)
-        assert isinstance(observation_space, gym.spaces.Box)
-        assert isinstance(action_space, gym.spaces.Box) or isinstance(action_space, gym.spaces.Discrete)
+        assert isinstance(observation_space, gymnasium.spaces.Box)
+        assert isinstance(action_space, gymnasium.spaces.Box) or isinstance(action_space, gymnasium.spaces.Discrete)
         assert type(n_envs) is int
         assert type(n_steps) is int
         assert type(normalize_obs) is bool
@@ -327,9 +327,9 @@ class A2C_Agent(JAXAgent):
         self.polyak_tau = {k: critic_kwargs[k].polyak_tau for k in self.critics}
         self.slow_reg_coef = {k: critic_kwargs[k].slow_reg_coef for k in self.critics}
 
-        if isinstance(self.action_space, gym.spaces.Box):
+        if isinstance(self.action_space, gymnasium.spaces.Box):
             self.action_dim = int(np.prod(self.action_space.shape))
-        elif isinstance(self.action_space, gym.spaces.Discrete):
+        elif isinstance(self.action_space, gymnasium.spaces.Discrete):
             self.action_dim = int(self.action_space.n)
             self.actor_kwargs.update({
                 "num_discrete_choices": self.action_dim,
@@ -521,16 +521,17 @@ class A2C_Agent(JAXAgent):
             else:
                 weight = np.ones(len(obs))
 
-            if isinstance(self.action_space, gym.spaces.Box):
+            if isinstance(self.action_space, gymnasium.spaces.Box):
                 clipped_action = np.clip(action, self.action_space.low, self.action_space.high)
 
-            new_obs, reward, done, info = env.step(clipped_action)
+            new_obs, reward, terminated, truncated, info = env.step(clipped_action)
+            done = np.logical_or(terminated, truncated)
 
             reward = {k: np.array(reward[k]) for k in self.critics}
 
             steps += 1
 
-            if isinstance(self.action_space, gym.spaces.Discrete):
+            if isinstance(self.action_space, gymnasium.spaces.Discrete):
                 # Reshape in case of discrete action
                 action = action.reshape(-1, 1)
 

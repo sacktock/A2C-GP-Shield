@@ -1,6 +1,32 @@
-.venv
-__pycache__
+# Python
+__pycache__/
+*.py[cod]
+*.egg-info/
+build/
+dist/
+.eggs/
+
+# Virtual environments
+.venv/
+venv/
+env/
+
+# Tooling caches
+.pytest_cache/
+.ruff_cache/
+.mypy_cache/
+.ipynb_checkpoints/
+
+# Experiment outputs
 videos/
 logdir/
 runs/
-*.egg-info
+tb/
+tmp/
+*.mp4
+
+# OS / editor
+.DS_Store
+Thumbs.db
+.idea/
+.vscode/

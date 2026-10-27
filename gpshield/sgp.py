@@ -8,7 +8,7 @@ from jax import lax
 from gpjax.base import param_field
 import tensorflow_probability.substrates.jax.bijectors as tfb
 import cola
-from gp import GPR, MGPR, matrix_diagonal, tensor_diagonal, matrix_transpose, tensor_transpose
+from gpshield.gp import GPR, MGPR, matrix_diagonal, tensor_diagonal, matrix_transpose, tensor_transpose
 from functools import partial
 
 class VGPR(GPR):

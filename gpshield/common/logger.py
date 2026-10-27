@@ -4,7 +4,7 @@ import numpy as np
 import warnings
 import time 
 from tqdm import tqdm
-from common.stats import Summary_Stats
+from gpshield.common.stats import Summary_Stats
 
 class RolloutLogger:
 

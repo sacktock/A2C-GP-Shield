@@ -1,9 +1,7 @@
-import gym
 import numpy as np
-from gym.utils import seeding
 import jax.numpy as jnp
 
-from envs.base import AbstractEnv
+from gpshield.envs.base import AbstractEnv
 
 def is_inside(hull, x_new_ax):
     A = hull.equations[:, :-1] 
@@ -25,7 +23,8 @@ class VecEnv(AbstractEnv):
 
         super().__init__()
 
-    def reset(self):
+    def reset(self, *, seed=None, options=None):
+        super().reset(seed=seed)
         self.state = self._init_state()
         return self.state, {}
 
@@ -37,16 +36,18 @@ class VecEnv(AbstractEnv):
         
         next_state = self._step(self.state, action)
         reward = self._reward(self.state, action, next_state)
-        done = self._done(next_state)
+        terminated = self._done(next_state)
+        truncated = np.zeros_like(terminated, dtype=bool)
         info = self._info(next_state)
 
         self.state = next_state
 
+        done = np.logical_or(terminated, truncated)
         if np.any(done):
             inds = np.arange(self.num_envs)[done]
             self.state = self._init_state(env_inds=inds)
 
-        return self.state, reward, done, info
+        return self.state, reward, terminated, truncated, info
 
     def _safe(self, state):
         # only select the relevant state dimenions
@@ -81,7 +82,7 @@ class VecWrapper(VecEnv):
 
         super().reset()
 
-    def reset(self):
+    def reset(self, *, seed=None, options=None):
         return self.state, {}
 
     def _reset(self):

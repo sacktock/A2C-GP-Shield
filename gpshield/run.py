@@ -5,7 +5,7 @@ import warnings
 warnings.filterwarnings("ignore", category=DeprecationWarning) 
 warnings.filterwarnings("ignore", category=UserWarning) 
 
-from gym.wrappers import RecordVideo
+from gymnasium.wrappers import RecordVideo
 
 import argparse
 import importlib
@@ -17,23 +17,23 @@ import math
 import numpy as np
 from scipy.special import softmax
 
-from dynamics_models import GP_Dynamics
+from gpshield.dynamics_models import GP_Dynamics
 
-from agents import Random_Agent, Linear_Agent
+from gpshield.agents import Random_Agent, Linear_Agent
 
-from common.logger import RolloutLogger, TrainLogger
-from common.buffer import TransitionBuffer, StateBuffer, PrioritizedStateBuffer, NoveltyStateBuffer
-from common.config import Config, Flags, Path
+from gpshield.common.logger import RolloutLogger, TrainLogger
+from gpshield.common.buffer import TransitionBuffer, StateBuffer, PrioritizedStateBuffer, NoveltyStateBuffer
+from gpshield.common.config import Config, Flags, Path
 
 import tensorflow as tf
 
-from ppo import A2C_Agent
+from gpshield.a2c import A2C_Agent
 
-from envs.gp_posterior_env import GP_Posterior_Env
+from gpshield.envs.gp_posterior_env import GP_Posterior_Env
 
 from tqdm import tqdm
 
-from envs.vec_env import VecWrapper
+from gpshield.envs.vec_env import VecWrapper
 
 import ruamel.yaml as yaml
 
@@ -71,7 +71,7 @@ def rollout(key, env, agent, timesteps, logger=None):
     s, a, r, d, ns = [], [], [], [], []
 
     if env.requires_reset:
-        state = env.reset()
+        state, _ = env.reset()
         if logger is not None:
             logger.reset()
     else:
@@ -80,7 +80,8 @@ def rollout(key, env, agent, timesteps, logger=None):
     for i in tqdm(range(timesteps)):
         key, subkey = jr.split(key)
         action = agent.policy(subkey, state)
-        next_state, reward, done, info = env.step(action)
+        next_state, reward, terminated, truncated, info = env.step(action)
+        done = terminated or truncated
 
         if logger is not None:
             logger.step({
@@ -100,7 +101,7 @@ def rollout(key, env, agent, timesteps, logger=None):
         state = next_state
 
         if done:
-            state = env.reset()
+            state, _ = env.reset()
 
     return s, a, r, d, ns
 
@@ -109,7 +110,7 @@ def rollout_with_shield(key, env, agent, dynamics_model, shield_fn, timesteps, l
     s, a, r, d, ns = [], [], [], [], []
 
     if env.requires_reset:
-        state = env.reset()
+        state, _ = env.reset()
         if logger is not None:
             logger.reset()
     else:
@@ -119,7 +120,8 @@ def rollout_with_shield(key, env, agent, dynamics_model, shield_fn, timesteps, l
         key, subkey = jr.split(key)
         action, override = shield_fn(subkey, state, agent, dynamics_model)
         env.set_render_override(override)
-        next_state, reward, done, info = env.step(action)
+        next_state, reward, terminated, truncated, info = env.step(action)
+        done = terminated or truncated
 
         if logger is not None:
             logger.step({
@@ -139,7 +141,7 @@ def rollout_with_shield(key, env, agent, dynamics_model, shield_fn, timesteps, l
         state = next_state
 
         if done:
-            state = env.reset()
+            state, _ = env.reset()
 
     return s, a, r, d, ns
 
@@ -164,12 +166,12 @@ def main(argv=None):
     if record_video:
         env = RecordVideo(env, video_folder=f"./videos/{config.env.env_id}/{config.env.reward_id}", episode_trigger=lambda x: True, name_prefix="shield")
     key = jr.key(seed)
-    env.seed(seed)
+    env.reset(seed=seed)
 
     eval_env = make_env(config.env.env_id, config.env.reward_id, max_episode_steps=config.env.max_episode_steps, obs_noise=config.env.obs_noise)
     if record_video:
         eval_env = RecordVideo(eval_env, video_folder=f"./videos/{config.env.env_id}/{config.env.reward_id}", step_trigger=lambda x: (x % config.run.post_hoc_frames) == 0, name_prefix="eval")
-    eval_env.seed(seed)
+    eval_env.reset(seed=seed)
 
     # Setup tensorboard logging
     if tensorboard:

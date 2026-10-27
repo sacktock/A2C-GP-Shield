@@ -1,8 +1,8 @@
-from envs.base import BaseEnv 
+from gpshield.envs.base import BaseEnv 
 import numpy as np
-from agents import Linear_Agent
+from gpshield.agents import Linear_Agent
 
-class ContinuousObstacle3(BaseEnv):
+class ContinuousObstacle2(BaseEnv):
 
     metadata = {
         "render_modes": [],
@@ -19,7 +19,7 @@ class ContinuousObstacle3(BaseEnv):
         self.min_position = -0.5
         self.max_position = 3.5
 
-        self.goal_position = np.array([3.0, 1.5])
+        self.goal_position = np.array([3.0, 3.0])
 
         min_action = -2.0 * np.ones(2)
         max_action = 2.0 * np.ones(2)
@@ -90,18 +90,12 @@ class ContinuousObstacle3(BaseEnv):
         return {
             'obstacles': [
                 np.array([
-                    [1.5, 2.0],
-                    [0.5, 2.0],
+                    [1.0, 2.0],
+                    [1.0, 2.0],
                 ]),
             ],
-            'boundaries': [
-                np.array([
-                    [-np.inf, np.inf],
-                    [-np.inf, 2.5],
-                ]),
-            ]
         }
-
+        
     @property
     def _safety_axes(self):
         return np.array([0, 1])

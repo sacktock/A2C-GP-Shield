@@ -1,0 +1,4 @@
+include requirements.txt
+include conda-environment.yaml
+include gpshield/configs.yaml
+include gpshield/envs/*.npz

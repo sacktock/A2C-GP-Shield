@@ -1,11 +1,10 @@
 import gymnasium
 import math
-import gym
 import numpy as np
-from envs.base import AbstractEnv
-from agents import Linear_Agent
+from pathlib import Path
+from gpshield.envs.base import AbstractEnv
+from gpshield.agents import Linear_Agent
 from scipy.spatial import ConvexHull
-from gym.utils import seeding
 
 class MuJoCoEnv(AbstractEnv):
 
@@ -19,13 +18,13 @@ class MuJoCoEnv(AbstractEnv):
 
         self.obs_noise = obs_noise
 
-        self.observation_space = gym.spaces.Box(
+        self.observation_space = gymnasium.spaces.Box(
             self._env.observation_space.low,
             self._env.observation_space.high,
             shape=self._env.observation_space.shape,
             dtype=np.float64
         )
-        self.action_space = gym.spaces.Box(
+        self.action_space = gymnasium.spaces.Box(
             self._env.action_space.low,
             self._env.action_space.high,
             shape=self._env.action_space.shape,
@@ -40,17 +39,11 @@ class MuJoCoEnv(AbstractEnv):
 
         super().__init__()
 
-    def seed(self, seed=None):
-        self.np_random, seed = seeding.np_random(seed)
-        if seed is None:
-            self.seeds = []
-        self.seeds = [seed]
-
-    def reset(self):
-        seed = self.seeds.pop() if len(self.seeds) > 0 else None
+    def reset(self, *, seed=None, options=None):
+        super().reset(seed=seed)
         self.state, self.info = self._env.reset(seed=seed)
         self.steps_beyond_done = None
-        return self.state
+        return self.state, self.info
 
     def step(self, action):
         action = action.astype(self.action_space.dtype)
@@ -66,7 +59,7 @@ class MuJoCoEnv(AbstractEnv):
             self.steps_beyond_done = 0
         elif done and (self.steps_beyond_done is not None):
             if self.steps_beyond_done == 0:
-                logger.warn(
+                gymnasium.logger.warn(
                     "You are calling 'step()' even though this "
                     "environment has already returned done = True. You "
                     "should always call 'reset()' once you receive 'done = "
@@ -77,7 +70,7 @@ class MuJoCoEnv(AbstractEnv):
         self.state = next_state
         self.info = info
         noise = self.np_random.standard_normal(self.observation_space.shape) * self.obs_noise
-        return self.state + noise, reward, done, self.info
+        return self.state + noise, reward, terminated, truncated, self.info
 
     def set_render_override(self, val):
         pass
@@ -129,7 +122,7 @@ class HopperV5(MuJoCoEnv):
 
         self._reset_noise_scale = 5e-3
 
-        data = np.load("envs/hopper_invariant_hull.npz")
+        data = np.load(Path(__file__).parent / "hopper_invariant_hull.npz")
 
         self.K = data["K"]
         self.x0 = data["center"]

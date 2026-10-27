@@ -1,4 +1,4 @@
-from envs.vec_env import VecEnv
+from gpshield.envs.vec_env import VecEnv
 import numpy as np
 import jax.numpy as jnp
 
@@ -27,7 +27,8 @@ class GP_Posterior_Env(VecEnv):
 
         super().__init__(num_posterior_samples*num_particles, env.observation_space, env.action_space)
 
-    def reset(self):
+    def reset(self, *, seed=None, options=None):
+        super().reset(seed=seed)
         self.state, self.weight = self._init_state()
         return self.state, {'weight': self.weight}
 
@@ -44,12 +45,14 @@ class GP_Posterior_Env(VecEnv):
 
         safe = self._safe(next_state) 
 
+        terminated = self._done(next_state)
+
         if self.truncate_unsafe:
             extr_rew = self._reward(self.state, action, next_state) * safe
-            done = np.logical_or(self._done(next_state), np.logical_not(safe))
+            truncated = np.logical_not(safe)
         else:
             extr_rew = self._reward(self.state, action, next_state)
-            done = self._done(next_state)
+            truncated = np.zeros_like(terminated, dtype=bool)
 
         if self.penalize_unsafe:
             extr_rew += np.logical_not(safe).astype(np.float64) * -self.penalty_coef
@@ -59,14 +62,15 @@ class GP_Posterior_Env(VecEnv):
         reward = {'extr': extr_rew, 'intr': intr_rew}
 
         self.state = next_state
-        
+
+        done = np.logical_or(terminated, truncated)
         if np.any(done):
             inds = np.arange(self.num_envs)[done]
             self.state, self.weight = self._init_state(env_inds=inds)
 
         info.update({'weight': self.weight})
 
-        return self.state, reward, done, info
+        return self.state, reward, terminated, truncated, info
 
     def _init_state(self, env_inds=None):
         if env_inds is None:

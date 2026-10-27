@@ -5,10 +5,10 @@ permalink: https://perma.cc/C9ZM-652R
 """
 
 import math
-import gym
+import gymnasium
 import numpy as np
-from envs.base import BaseEnv 
-from agents import Linear_Agent
+from gpshield.envs.base import BaseEnv 
+from gpshield.agents import Linear_Agent
 from scipy.spatial import ConvexHull
 
 class ContinuousCartPole(BaseEnv):
@@ -97,10 +97,10 @@ class ContinuousCartPole(BaseEnv):
     def render(self):
 
         if self.render_mode is None:
-            gym.logger.warn(
+            gymnasium.logger.warn(
                 "You are calling render method without specifying any render mode. "
                 "You can specify the render_mode at initialization, "
-                f'e.g. gym("{self.spec.id}", render_mode="rgb_array")'
+                'e.g. by passing render_mode="rgb_array" to the environment constructor.'
             )
             return
 
@@ -109,8 +109,8 @@ class ContinuousCartPole(BaseEnv):
             import pygame
             from pygame import gfxdraw
         except ImportError:
-            raise DependencyNotInstalled(
-                "pygame is not installed, run `pip install gym[classic_control]`"
+            raise gymnasium.error.DependencyNotInstalled(
+                'pygame is not installed, run `pip install "gymnasium[classic-control]"`'
             )
 
 

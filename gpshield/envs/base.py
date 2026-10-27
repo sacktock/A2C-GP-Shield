@@ -1,7 +1,6 @@
-import gym
+import gymnasium
 import numpy as np
 from scipy.spatial import ConvexHull
-from gym.utils import seeding
 
 def is_inside(hull, x_new_ax):
     A = hull.equations[:, :-1] 
@@ -13,21 +12,20 @@ def is_outside(hull, x_new_ax):
     b = hull.equations[:, -1]
     return np.any(A @ x_new_ax + b > 0)
 
-class AbstractEnv(gym.Env):
+class AbstractEnv(gymnasium.Env):
+
+    metadata = {"render_modes": ["rgb_array"], "render_fps": 30}
+    render_mode = None
 
     def __init__(self):
-        self.seed()
+        super().__init__()
         self.state = None
-    
-    def seed(self, seed=None):
-        self.np_random, seed = seeding.np_random(seed)
-        return [seed]
 
-    def reset(self):
-        pass
+    def reset(self, *, seed=None, options=None):
+        super().reset(seed=seed)
 
     def render(self):
-        assert NotImplementedError
+        raise NotImplementedError
 
     def close(self):
         pass
@@ -111,16 +109,16 @@ class BaseEnv(AbstractEnv):
     def __init__(self, obs_dim, act_dim, obs_low, obs_high, act_low, act_high, max_episode_steps=None, continuous=True, obs_noise=1e-6):
 
         assert obs_dim == obs_low.shape == obs_high.shape
-        self.observation_space = gym.spaces.Box(obs_low, obs_high, dtype=np.float64)
+        self.observation_space = gymnasium.spaces.Box(obs_low, obs_high, dtype=np.float64)
 
         self.obs_noise = obs_noise
 
         if continuous:
             assert act_dim == act_low.shape == act_high.shape
-            self.action_space = gym.spaces.Box(act_low, act_high, dtype=np.float64)
+            self.action_space = gymnasium.spaces.Box(act_low, act_high, dtype=np.float64)
         else:
             assert len(act_dim.shape) == 1
-            self.action_space = gym.spaces.Discrete(act_dim)
+            self.action_space = gymnasium.spaces.Discrete(act_dim)
 
         self._max_episode_steps = max_episode_steps
 
@@ -132,12 +130,13 @@ class BaseEnv(AbstractEnv):
 
         super().__init__()
 
-    def reset(self):
+    def reset(self, *, seed=None, options=None):
+        super().reset(seed=seed, options=options)
         self._elapsed_steps = 0
         self.state = self._init_state()
         self.steps_beyond_done = None
         self._render_override = False
-        return self.state
+        return self.state, {}
 
     def step(self, action):
         action = action.astype(self.action_space.dtype)
@@ -149,7 +148,8 @@ class BaseEnv(AbstractEnv):
         next_state = self._step(self.state, action)
         reward = self._reward(self.state, action, next_state)
         truncated = self._truncated()
-        done = self._done(next_state) or truncated
+        terminated = self._done(next_state)
+        done = terminated or truncated
         info = self._info(next_state)
         info.update({"truncated": truncated})
 
@@ -157,7 +157,7 @@ class BaseEnv(AbstractEnv):
             self.steps_beyond_done = 0
         elif done and (self.steps_beyond_done is not None):
             if self.steps_beyond_done == 0:
-                logger.warn(
+                gymnasium.logger.warn(
                     "You are calling 'step()' even though this "
                     "environment has already returned done = True. You "
                     "should always call 'reset()' once you receive 'done = "
@@ -167,7 +167,7 @@ class BaseEnv(AbstractEnv):
 
         self.state = next_state
         noise = self.np_random.standard_normal(self.observation_space.shape) * self.obs_noise
-        return self.state + noise, reward, done, info
+        return self.state + noise, reward, terminated, truncated, info
 
     def apply_step(self, state, action):
         return self._step(state, action)

@@ -2,7 +2,7 @@ import jax.random as jr
 import jax.numpy as jnp
 from jax import jit
 import jax
-import gym
+import gymnasium
 from abc import ABC, abstractmethod
 import numpy as np
 from scipy.linalg import solve_continuous_are
@@ -176,7 +176,7 @@ class Random_Agent(JAXAgent):
         self.continuous = continuous
         if self.continuous:
             self.action_space = action_space
-            assert isinstance(self.action_space, gym.spaces.Box)
+            assert isinstance(self.action_space, gymnasium.spaces.Box)
         else:
             self.n_actions = action_space.n
 

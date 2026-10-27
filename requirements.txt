@@ -1,0 +1,15 @@
+gymnasium[mujoco]
+numpy
+scipy
+jax==0.6.2
+jaxlib
+gpjax==1.0.0
+tensorflow==2.18.*
+tensorflow-probability==0.25.0
+tf-keras
+optax
+flax
+cola-ml
+tqdm
+ruamel.yaml
+pygame

@@ -1,0 +1,47 @@
+[build-system]
+requires = ["setuptools>=77.0.0"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "gp-shield"
+version = "0.1.0"
+description = "Safe reinforcement learning via recovery-based shielding with Gaussian Process dynamics models"
+readme = "README.md"
+requires-python = ">=3.12,<3.13"
+dependencies = [
+  "gymnasium[mujoco]",
+  "numpy",
+  "scipy",
+  "jax==0.6.2",
+  "jaxlib",
+  "gpjax==1.0.0",
+  "tensorflow==2.18.*",
+  "tensorflow-probability==0.25.0",
+  "tf-keras",
+  "optax",
+  "flax",
+  "cola-ml",
+  "tqdm",
+  "ruamel.yaml",
+  "pygame",
+]
+
+[project.scripts]
+gpshield = "gpshield.run:main"
+
+[tool.setuptools]
+include-package-data = true
+
+[tool.setuptools.packages.find]
+include = ["gpshield", "gpshield.*"]
+
+[dependency-groups]
+dev = ["pytest>=8.0.0"]
+cuda12 = ["jax[cuda12]==0.6.2"]
+cuda13 = ["jax[cuda13]==0.6.2"]
+
+[tool.uv]
+conflicts = [[{ group = "cuda12" }, { group = "cuda13" }]]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]

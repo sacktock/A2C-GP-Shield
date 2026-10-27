@@ -1,6 +1,6 @@
 
-from gp import MGPR
-from sgp import SMGPR
+from gpshield.gp import MGPR
+from gpshield.sgp import SMGPR
 
 import jax.numpy as jnp
 import jax.random as jr
@@ -14,14 +14,12 @@ from scipy.optimize import minimize
 import numpy as np
 from scipy.spatial import ConvexHull
 
-import gym
+import gymnasium
 from gpjax.distributions import GaussianDistribution
 
 from tqdm import tqdm
 
 import os
-
-from plotting import plot_ellipses_and_hull, plot_points_and_ellipsoids
 
 import time
 
@@ -295,8 +293,8 @@ class GP_Dynamics():
         self.observation_space = env.observation_space
         self.action_space = env.action_space
 
-        assert isinstance(self.action_space, gym.spaces.Discrete) or isinstance(self.action_space, gym.spaces.Box)
-        assert isinstance(self.observation_space, gym.spaces.Box)
+        assert isinstance(self.action_space, gymnasium.spaces.Discrete) or isinstance(self.action_space, gymnasium.spaces.Box)
+        assert isinstance(self.observation_space, gymnasium.spaces.Box)
 
         s_initial, a_initial, ns_initial = jnp.array(s_initial), jnp.array(a_initial), jnp.array(ns_initial)
 
@@ -307,7 +305,7 @@ class GP_Dynamics():
 
         self.mgpr_models = []
 
-        if isinstance(self.action_space, gym.spaces.Discrete):
+        if isinstance(self.action_space, gymnasium.spaces.Discrete):
             for i in range(self.action_space.n):
                 x_initial = s_initial[a_initial == i]
                 # model deltas
@@ -322,7 +320,7 @@ class GP_Dynamics():
                     mgpr_model = MGPR(subkey, x_initial, y_initial, obs_noise=self.obs_noise, **gp_kwargs)
                 self.mgpr_models.append(mgpr_model)
 
-        if isinstance(self.action_space, gym.spaces.Box):
+        if isinstance(self.action_space, gymnasium.spaces.Box):
             x_initial = jnp.concatenate([s_initial, a_initial], axis=1)
             # model deltas
             y_initial = ns_initial - s_initial
@@ -337,7 +335,7 @@ class GP_Dynamics():
 
     def add_experience(self, s_new, a_new, ns_new):
         s_new, a_new, ns_new = jnp.array(s_new), jnp.array(a_new), jnp.array(ns_new)
-        if isinstance(self.action_space, gym.spaces.Discrete):
+        if isinstance(self.action_space, gymnasium.spaces.Discrete):
             assert len(self.mgpr_models) == self.action_space.n
             for i in range(self.action_space.n):
                 x_new = s_new[a_new == i]
@@ -345,7 +343,7 @@ class GP_Dynamics():
                 y_new = ns_new[a_new == i] - x_new
                 self.mgpr_models[i].add_XY(x_new, y_new)
 
-        if isinstance(self.action_space, gym.spaces.Box):
+        if isinstance(self.action_space, gymnasium.spaces.Box):
             assert len(self.mgpr_models) == 1
             x_new = jnp.concatenate([s_new, a_new], axis=1)
             # model deltas
@@ -355,7 +353,7 @@ class GP_Dynamics():
     def set_experience(self, s_new, a_new, ns_new):
         s_new, a_new, ns_new = jnp.array(s_new), jnp.array(a_new), jnp.array(ns_new)
 
-        if isinstance(self.action_space, gym.spaces.Discrete):
+        if isinstance(self.action_space, gymnasium.spaces.Discrete):
             assert len(self.mgpr_models) == self.action_space.n
             for i in range(self.action_space.n):
                 x_new = s_new[a_new == i]
@@ -363,7 +361,7 @@ class GP_Dynamics():
                 y_new = ns_new[a_new == i] - x_new
                 self.mgpr_models[i].set_XY(x_new, y_new)
 
-        if isinstance(self.action_space, gym.spaces.Box):
+        if isinstance(self.action_space, gymnasium.spaces.Box):
             assert len(self.mgpr_models) == 1
             x_new = jnp.concatenate([s_new, a_new], axis=1)
             # model deltas
@@ -380,14 +378,14 @@ class GP_Dynamics():
         return {'gp_loss': np.mean(losses)}
 
     def predict_delta_at_point(self, state, action):
-        if isinstance(self.action_space, gym.spaces.Discrete):
+        if isinstance(self.action_space, gymnasium.spaces.Discrete):
             assert len(self.mgpr_models) == self.action_space.n
             assert action in self.action_space
             i = action
             x = state.reshape(1, -1)
             delta, cov = self.mgpr_models[i].predict_at_point(x)
             return delta, cov
-        if isinstance(self.action_space, gym.spaces.Box):
+        if isinstance(self.action_space, gymnasium.spaces.Box):
             assert len(self.mgpr_models) == 1
             x = jnp.concatenate([state, action], axis=0).reshape(1, -1)
             delta, cov = self.mgpr_models[0].predict_at_point(x)
@@ -437,9 +435,9 @@ class GP_Dynamics():
         return mu, cov
 
     def predict(self, mu, cov, agent, N):
-        if isinstance(self.action_space, gym.spaces.Discrete):
+        if isinstance(self.action_space, gymnasium.spaces.Discrete):
             assert NotImplementedError
-        if isinstance(self.action_space, gym.spaces.Box):
+        if isinstance(self.action_space, gymnasium.spaces.Box):
             assert len(self.mgpr_models) == 1
             mus = jnp.empty((N+1,) + mu.shape)
             covs = jnp.empty((N+1,) + cov.shape)
@@ -454,9 +452,9 @@ class GP_Dynamics():
             return mus, covs
 
     def propagate(self, mu, cov, agent):
-        if isinstance(self.action_space, gym.spaces.Discrete):
+        if isinstance(self.action_space, gymnasium.spaces.Discrete):
             assert NotImplementedError
-        if isinstance(self.action_space, gym.spaces.Box):
+        if isinstance(self.action_space, gymnasium.spaces.Box):
             mu_act, cov_act, cross_cov_act = agent.propagate(mu, cov)
             x = jnp.concatenate([mu, mu_act], axis=0)
             cov_1 = jnp.concatenate([cov, jnp.matmul(cov, cross_cov_act)], axis=1)
@@ -479,9 +477,9 @@ class GP_Dynamics():
         return cov.at[jnp.diag_indices_from(cov)].set(modified_diagonal)
 
     def sample_approx(self, key, num_samples=1, jitted=True):
-        if isinstance(self.action_space, gym.spaces.Discrete):
+        if isinstance(self.action_space, gymnasium.spaces.Discrete):
             assert NotImplementedError
-        if isinstance(self.action_space, gym.spaces.Box):
+        if isinstance(self.action_space, gymnasium.spaces.Box):
             assert len(self.mgpr_models) == 1
             transition_fn = self.mgpr_models[0].sample_approx(key, num_samples=num_samples, jitted=jitted)
         return transition_fn 
@@ -658,49 +656,6 @@ class GP_Dynamics():
 
             return action, False
 
-        elif method == "gaussian_and_posterior_sample_approx_plot":
-
-            key, subkey = jr.split(key)
-            #mu, cov = self.propagate_naive(subkey, state, agent)
-            mu = state
-            action = agent.act(subkey, state)
-            delta, cov = self.predict_delta_at_point(mu, action)
-            mu = mu + delta
-
-            mus, covs = self.predict(mu, cov, safe_agent, N)
-            mus = jnp.concatenate([mu.reshape(1, -1), mus], axis=0)
-            covs = jnp.concatenate([jnp.expand_dims(cov, axis=0), covs], axis=0)
-
-            M = num_samples
-            samples = jnp.empty((M, N+1,) + state.shape)
-
-            epsilon_t = 0.995
-
-            key, subkey = jr.split(key)
-            transition_fn = self.sample_approx(subkey, num_samples=M, jitted=False)
-
-            mu = jnp.tile(state.reshape(1, -1), (M, 1))
-            action = agent.select_action(agent.actor_state, mu)
-            action = jnp.clip(action, self.action_space.low, self.action_space.high)
-
-            x = jnp.concatenate([mu, action], axis=-1)
-            delta = jnp.squeeze(transition_fn(x))[jnp.arange(M), jnp.arange(M), :]
-
-            mu = jnp.tile(state.reshape(1, -1), (M, 1)) + delta
-            samples = samples.at[:, 0].set(mu)
-
-            for j in tqdm(range(N)):
-                key, subkey = jr.split(key)
-                transition_fn = self.sample_approx(subkey, num_samples=M, jitted=False)
-                act = safe_agent.act_dim(mu)
-                x = jnp.concatenate([mu, act], axis=-1)
-                delta = jnp.squeeze(transition_fn(x))[jnp.arange(M), jnp.arange(M), :]
-                mu = mu + delta
-                samples = samples.at[:, j+1].set(mu)
-
-            plot_points_and_ellipsoids(mus, covs, samples, axes=[2,3], x_limits=[-0.2095, 0.2095], y_limits=None, fit_to_limits=True,x_name='pole angle', y_name='pole angular velcoity', sigma_coef=3.82, outfile="points_and_ellipsoids.pdf" )
-
-            return action, False
         else:
             raise NotImplementedError
 

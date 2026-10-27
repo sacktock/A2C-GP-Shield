@@ -1,5 +1,5 @@
 
-import gym
+import gymnasium
 import numpy as np
 from collections import defaultdict
 
@@ -7,8 +7,8 @@ class BaseBuffer:
 
     def __init__(self, buffer_size, observation_space, action_space):
         assert type(buffer_size) is int
-        assert isinstance(observation_space, gym.spaces.Box)
-        assert isinstance(action_space, gym.spaces.Box) or isinstance(action_space, gym.spaces.Discrete)
+        assert isinstance(observation_space, gymnasium.spaces.Box)
+        assert isinstance(action_space, gymnasium.spaces.Box) or isinstance(action_space, gymnasium.spaces.Discrete)
 
         self.buffer_size = buffer_size
         self.observation_space = observation_space
@@ -17,9 +17,9 @@ class BaseBuffer:
         self.pos = 0
         self.full = False
 
-        if isinstance(self.action_space, gym.spaces.Box):
+        if isinstance(self.action_space, gymnasium.spaces.Box):
             self.action_dim = int(np.prod(self.action_space.shape))
-        elif isinstance(self.action_space, gym.spaces.Discrete):
+        elif isinstance(self.action_space, gymnasium.spaces.Discrete):
             self.action_dim = int(self.action_space.n)
         else:
             raise NotImplementedError

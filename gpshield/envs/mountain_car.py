@@ -1,8 +1,8 @@
-from envs.base import BaseEnv 
+from gpshield.envs.base import BaseEnv 
 import numpy as np
 import math
-import gym
-from agents import Linear_Agent
+import gymnasium
+from gpshield.agents import Linear_Agent
 from scipy.spatial import ConvexHull
 
 
@@ -78,10 +78,10 @@ class ContinuousMountainCar(BaseEnv):
 
     def render(self):
         if self.render_mode is None:
-            gym.logger.warn(
+            gymnasium.logger.warn(
                 "You are calling render method without specifying any render mode. "
                 "You can specify the render_mode at initialization, "
-                f'e.g. gym("{self.spec.id}", render_mode="rgb_array")'
+                'e.g. by passing render_mode="rgb_array" to the environment constructor.'
             )
             return
 
@@ -89,8 +89,8 @@ class ContinuousMountainCar(BaseEnv):
             import pygame
             from pygame import gfxdraw
         except ImportError:
-            raise DependencyNotInstalled(
-                "pygame is not installed, run `pip install gym[classic_control]`"
+            raise gymnasium.error.DependencyNotInstalled(
+                'pygame is not installed, run `pip install "gymnasium[classic-control]"`'
             )
 
         if self.screen is None:
