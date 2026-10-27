@@ -1,7 +1,7 @@
 gymnasium[mujoco]
 numpy
 scipy
-jax==0.6.2
+jax==0.10.2
 jaxlib
 gpjax==1.0.0
 tensorflow==2.18.*

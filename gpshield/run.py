@@ -39,15 +39,15 @@ import ruamel.yaml as yaml
 
 def make_env(env_id, reward_id, max_episode_steps=200, **kwargs):
     ctor = {
-        'cartpole': 'envs.cartpole:ContinuousCartPole',
-        'mountain_car': 'envs.mountain_car:ContinuousMountainCar',
-        'obstacle': 'envs.obstacle:ContinuousObstacle',
-        'obstacle2': 'envs.obstacle2:ContinuousObstacle2',
-        'obstacle3': 'envs.obstacle3:ContinuousObstacle3',
-        'obstacle4': 'envs.obstacle4:ContinuousObstacle4',
-        'hopper': 'envs.hopper:HopperV5',
-        'road': 'envs.road:ContinuousRoad',
-        'road_2d': 'envs.road_2d:ContinuousRoad_2d',
+        'cartpole': 'gpshield.envs.cartpole:ContinuousCartPole',
+        'mountain_car': 'gpshield.envs.mountain_car:ContinuousMountainCar',
+        'obstacle': 'gpshield.envs.obstacle:ContinuousObstacle',
+        'obstacle2': 'gpshield.envs.obstacle2:ContinuousObstacle2',
+        'obstacle3': 'gpshield.envs.obstacle3:ContinuousObstacle3',
+        'obstacle4': 'gpshield.envs.obstacle4:ContinuousObstacle4',
+        'hopper': 'gpshield.envs.hopper:HopperV5',
+        'road': 'gpshield.envs.road:ContinuousRoad',
+        'road_2d': 'gpshield.envs.road_2d:ContinuousRoad_2d',
     }[env_id]
     if isinstance(ctor, str):
         module, cls = ctor.split(':')

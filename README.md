@@ -1,50 +1,147 @@
-# Safe RL with GP
+# GP-Shield
 
-This repo contains the code for the experimental evaluation in the research paper "Safe Reinforcement Learning via Recovery-based Shielding with Gaussian Process Dynamics Models"
+Safe reinforcement learning via recovery-based shielding with Gaussian Process dynamics models.
 
-## Dependencies
+This repository is the training code for the paper "Safe Reinforcement Learning via Recovery-based Shielding with Gaussian Process Dynamics Models". Environments use the [Gymnasium](https://gymnasium.farama.org/) interface. The shield is a Gaussian-process dynamics model that overrides the learned policy with a safe backup controller.
 
-The main dependencies of the project are ```gym==0.25.2```, ```numpy>=1.26.4```, ```jax==0.4.30``` and ```gpjax==0.8.2```. We provide a requirements.txt and environment.yml, we recommend first setting up a conda environment for this project
-```
-conda create -n gpjax --clone base
-```
-The specific JAXLib installation you require may be different from ours as it is hardware dependent, see (https://github.com/google/jax#pip-installation-gpu-cuda) for details. Otherwise you can install the requirements with pip or similar.
+## Quick Start
 
-The docs for the GPJAX library can be found here (https://docs.jaxgaussianprocesses.com/) we recommend installing ```gpjax==0.8.2``` but our code may be compatible with newer versions.
+### Installation
 
-```
-conda activate gpjax
-pip install -r requirements.txt
-```
-or
-```
-conda env create -f environment.yml
-```
-Finally for MuJoCo dependencies, please install,
-```
-pip install gymnasium[mujoco]
+#### Prerequisites
+
+Python 3.12 is required.
+
+#### Installation with conda
+
+- Install conda, for example via [Miniconda](https://docs.anaconda.com/miniconda/).
+- Clone the repo and create the environment from the repository root:
+
+```bash
+conda env create --name gpshield --file conda-environment.yaml
+conda activate gpshield
 ```
 
-## Running experiments
+- Install the project and its dependencies:
 
-We use yaml files for configuring runs, for example to run the experiment for cartpole simple run the following in the command line,
-```
-python run.py --configs cartpole
-```
-Configs can easily be overridden by pass them as command line arguments
-```
-python run.py --configs cartpole --gp.sparse True
-```
-By editing the configs.yaml file you can also setup a set of default configs.
-
-## Plotting
-
-For plotting runs our code uses tensorboard. Simply add ```--tensorboard True --logdir my_logdir/``` to the command line when running experiments. Then launch tensorboard.
-```
-tensorboard --logdir my_logdir
+```bash
+pip install -e .
 ```
 
-## Recording videos
+`pip install -e .` installs the dependencies declared in `pyproject.toml`. `requirements.txt` lists the same base dependencies and is kept in lockstep with that file.
 
-We also support video recording for a limited subset of the environments. Simply add ```--record_video True``` to the command line when running experiments.
+#### Installation with uv
 
+From the repository root, `uv sync` installs the base dependency set (CPU JAX):
+
+```bash
+uv sync
+```
+
+Install the test extra as well:
+
+```bash
+uv sync --group dev
+```
+
+GPU JAX is a separate dependency group. Pick the one that matches your driver:
+
+```bash
+uv sync --group cuda12
+```
+
+```bash
+uv sync --group cuda13
+```
+
+`cuda12` and `cuda13` conflict with each other. Do not enable both.
+
+#### Enabling GPU acceleration with JAX (optional)
+
+GP-Shield uses [JAX](https://docs.jax.dev/) for the dynamics model and the actor-critic. CPU is enough to run the environments and a short training job.
+
+**macOS and Windows:** use the CPU install above. No extra JAX step is required.
+
+**Linux x86_64 / aarch64 and Windows WSL2:** reinstall JAX for your CUDA driver after the base install. Do not pass `-U` here; it can upgrade past the pinned JAX release.
+
+```bash
+pip install "jax[cuda12]==0.10.2"
+```
+
+```bash
+pip install "jax[cuda13]==0.10.2"
+```
+
+Or, with uv:
+
+```bash
+uv sync --group cuda12
+```
+
+```bash
+uv sync --group cuda13
+```
+
+JAX is pinned to `0.10.2` because that release ships CUDA 12 and CUDA 13 wheels and still resolves with `tensorflow==2.18.*`, `tf-keras`, and `tensorflow-probability==0.25.0`. `gpjax` is pinned to `1.0.0`. `jaxlib` is unpinned and comes from the lockfile.
+
+MuJoCo (used by the Hopper environment) is installed through the `gymnasium[mujoco]` extra and does not need a separate step.
+
+## How to run GP-Shield
+
+Training is configured from `gpshield/configs.yaml`. The console script is available after installation:
+
+```bash
+gpshield --configs cartpole
+```
+
+With uv, without activating another environment:
+
+```bash
+uv run gpshield --configs cartpole
+```
+
+Any key in the loaded config can be overridden from the command line:
+
+```bash
+gpshield --configs cartpole --gp.sparse True --seed 1
+```
+
+Named blocks in `configs.yaml` (`cartpole`, `mountain_car`, `obstacle`, `obstacle2`, `obstacle3`, `obstacle4`, `hopper`, `road`, `road_2d`, and the `cartpole_v2` / `cartpole_v3` variants) are applied on top of `defaults`.
+
+### Logging
+
+```bash
+gpshield --configs cartpole --tensorboard True --logdir ./logdir/cartpole
+tensorboard --logdir ./logdir
+```
+
+### Recording videos
+
+Cartpole and mountain car render RGB frames. Pass `--record_video True` to wrap the training and evaluation environments with Gymnasium's `RecordVideo` wrapper. Videos are written under `./videos/<env_id>/<reward_id>/`.
+
+## Tests
+
+With uv:
+
+```bash
+uv sync --group dev
+uv run pytest -v
+```
+
+With conda or pip, install the project, then pytest, and run from the repository root:
+
+```bash
+pip install -e .
+pip install "pytest>=8"
+pytest -v
+```
+
+The suite checks that the scientific stack imports, that the custom environments follow the Gymnasium `reset` and `step` contract, and that model construction plus a tiny training job can start.
+
+## Dependency sync
+
+`requirements.txt` must match `[project.dependencies]` in `pyproject.toml`. CI runs `scripts/check_requirements_sync.py` when either file changes. Locally:
+
+```bash
+python scripts/check_requirements_sync.py
+```

@@ -12,7 +12,7 @@ dependencies = [
   "gymnasium[mujoco]",
   "numpy",
   "scipy",
-  "jax==0.6.2",
+  "jax==0.10.2",
   "jaxlib",
   "gpjax==1.0.0",
   "tensorflow==2.18.*",
@@ -37,11 +37,12 @@ include = ["gpshield", "gpshield.*"]
 
 [dependency-groups]
 dev = ["pytest>=8.0.0"]
-cuda12 = ["jax[cuda12]==0.6.2"]
-cuda13 = ["jax[cuda13]==0.6.2"]
+cuda12 = ["jax[cuda12]==0.10.2"]
+cuda13 = ["jax[cuda13]==0.10.2"]
 
 [tool.uv]
 conflicts = [[{ group = "cuda12" }, { group = "cuda13" }]]
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]
+pythonpath = ["."]

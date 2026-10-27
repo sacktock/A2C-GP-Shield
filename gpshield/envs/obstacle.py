@@ -66,7 +66,7 @@ class ContinuousObstacle(BaseEnv):
     def _init_state_function(self):
         return lambda: np.zeros(4)
 
-    property
+    @property
     def _reward_function(self):
         if self.reward_id == "rew_v1":
             def rew_fn(s, a , ns):
