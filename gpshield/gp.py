@@ -3,13 +3,21 @@ import jax.random as jr
 import jax
 from jax import jit
 from functools import partial
+import equinox as eqx
 import gpjax as gpx
 import optax as ox
+import paramax
 from jax import lax
-from gpjax.base import param_field
-import tensorflow_probability.substrates.jax.bijectors as tfb
 import cola
 import numpy as np
+
+def _freeze_obs_noise(likelihood):
+    """Hold the observation noise fixed while the kernel hyperparameters train."""
+    return eqx.tree_at(
+        lambda lh: lh.obs_stddev,
+        likelihood,
+        replace_fn=paramax.non_trainable,
+    )
 
 @jit
 def matrix_diagonal(matrix):
@@ -97,18 +105,16 @@ class GPR():
         self.steps = 0
 
     def optimize(self, key):
-        likelihood = gpx.likelihoods.Gaussian(
-            num_datapoints=self.D.n, obs_stddev=self.noise
+        likelihood = _freeze_obs_noise(
+            gpx.likelihoods.Gaussian(obs_stddev=self.noise)
         )
-        likelihood = likelihood.replace_trainable(obs_stddev=False)
 
         if self.posterior is not None:
             posterior = self.posterior.prior * likelihood
         else:
             posterior = self.prior * likelihood
 
-        negative_mll = gpx.objectives.ConjugateMLL(negative=True)
-        negative_mll = jit(negative_mll)
+        negative_mll = jit(lambda model, data: -gpx.objectives.conjugate_mll(model, data))
 
         opt_posterior, _ = gpx.fit(
             model=posterior,
@@ -131,7 +137,7 @@ class GPR():
     def predict_at_point(self, x):
         latent_dist = self.posterior.predict(x, train_data=self.D)
         predictive_dist = self.posterior.likelihood(latent_dist)
-        return predictive_dist.mean(), predictive_dist.stddev()**2
+        return predictive_dist.mean, predictive_dist.variance
 
     def sample_approx(self, key, num_samples=1):
         return self.posterior.sample_approx(
@@ -148,15 +154,15 @@ class GPR():
 
     @property
     def lengthscale(self):
-        return self.posterior.prior.kernel.lengthscale
+        return gpx.parameters.val(self.posterior.prior.kernel.lengthscale)
 
     @property
     def variance(self):
-        return self.posterior.prior.kernel.variance
+        return gpx.parameters.val(self.posterior.prior.kernel.variance)
 
     def kernel(self, X1, X2):
         if X2 is None:
-            return self.posterior.prior.kernel.gram(X1).to_dense()
+            return self.posterior.prior.kernel.gram(X1).as_matrix()
         else:
             return self.posterior.prior.kernel.cross_covariance(X1, X2)
 

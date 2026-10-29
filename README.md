@@ -62,17 +62,7 @@ GP-Shield uses [JAX](https://docs.jax.dev/) for the dynamics model and the actor
 
 **macOS and Windows:** use the CPU install above. No extra JAX step is required.
 
-**Linux x86_64 / aarch64 and Windows WSL2:** reinstall JAX for your CUDA driver after the base install. Do not pass `-U` here; it can upgrade past the pinned JAX release.
-
-```bash
-pip install "jax[cuda12]==0.10.2"
-```
-
-```bash
-pip install "jax[cuda13]==0.10.2"
-```
-
-Or, with uv:
+**Linux x86_64 / aarch64 and Windows WSL2:** install the CUDA extra that matches your driver. These groups follow the JAX version in the lock, so they stay compatible with `gpjax==1.0.0` (`jax<0.11`).
 
 ```bash
 uv sync --group cuda12
@@ -82,7 +72,7 @@ uv sync --group cuda12
 uv sync --group cuda13
 ```
 
-JAX is pinned to `0.10.2` because that release ships CUDA 12 and CUDA 13 wheels and still resolves with `tensorflow==2.18.*`, `tf-keras`, and `tensorflow-probability==0.25.0`. `gpjax` is pinned to `1.0.0`. `jaxlib` is unpinned and comes from the lockfile.
+`jax`, `jaxlib`, and `tensorflow` are unpinned. The current lock resolves `jax` and `jaxlib` to 0.10.2, which is the newest release inside GPJAX's bound and the one that ships both CUDA extras, and `tensorflow` to 2.18.1. `gpjax` stays pinned at `1.0.0`.
 
 MuJoCo (used by the Hopper environment) is installed through the `gymnasium[mujoco]` extra and does not need a separate step.
 

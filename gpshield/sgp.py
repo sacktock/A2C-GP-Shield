@@ -5,10 +5,8 @@ from jax import jit
 import gpjax as gpx
 import optax as ox
 from jax import lax
-from gpjax.base import param_field
-import tensorflow_probability.substrates.jax.bijectors as tfb
 import cola
-from gpshield.gp import GPR, MGPR, matrix_diagonal, tensor_diagonal, matrix_transpose, tensor_transpose
+from gpshield.gp import GPR, MGPR, _freeze_obs_noise, matrix_diagonal, tensor_diagonal, matrix_transpose, tensor_transpose
 from functools import partial
 
 class VGPR(GPR):
@@ -43,23 +41,23 @@ class VGPR(GPR):
         raise NotImplementedError
 
     def sample_approx(self, key, num_samples=1):
-        return self.q.posterior.sample_approx(
+        return self.q.model.sample_approx(
             num_samples=num_samples, train_data=self.D, key=key, num_features=500
         )
 
     @property
     def lengthscale(self):
-        return self.q.posterior.prior.kernel.lengthscale
+        return gpx.parameters.val(self.q.model.prior.kernel.lengthscale)
 
     @property
     def variance(self):
-        return self.q.posterior.prior.kernel.variance
+        return gpx.parameters.val(self.q.model.prior.kernel.variance)
 
     def kernel(self, X1, X2):
         if X2 is None:
-            return self.q.posterior.prior.kernel.gram(X1).to_dense()
+            return self.q.model.prior.kernel.gram(X1).as_matrix()
         else:
-            return self.q.posterior.prior.kernel.cross_covariance(X1, X2)
+            return self.q.model.prior.kernel.cross_covariance(X1, X2)
 
     @property
     def Z(self):
@@ -87,22 +85,20 @@ class SGPR(VGPR):
         super().__init__(x_initial, y_initial, z_initial, kernel, mean, obs_noise, learning_rate, num_iters, batch_size, **kw)
 
     def optimize(self, key):
-        likelihood = gpx.likelihoods.Gaussian(
-            num_datapoints=self.D.n, obs_stddev=self.noise
+        likelihood = _freeze_obs_noise(
+            gpx.likelihoods.Gaussian(obs_stddev=self.noise)
         )
-        likelihood = likelihood.replace_trainable(obs_stddev=False)
 
         if self.q is not None:
-            posterior = self.q.posterior.prior * likelihood
+            posterior = self.q.model.prior * likelihood
         else:
             posterior = self.prior * likelihood
 
         q = gpx.variational_families.CollapsedVariationalGaussian(
-            posterior=posterior, inducing_inputs=self.z
+            model=posterior, inducing_inputs=self.z
         )
 
-        elbo = gpx.objectives.CollapsedELBO(negative=True)
-        elbo = jit(elbo)
+        elbo = jit(lambda model, data: -gpx.objectives.collapsed_elbo(model, data))
 
         opt_q, _ = gpx.fit(
             model=q,
@@ -117,7 +113,7 @@ class SGPR(VGPR):
         )
 
         self.q = opt_q
-        self.z = opt_q.inducing_inputs
+        self.z = gpx.parameters.val(opt_q.inducing_inputs)
 
         self.steps += 1
 
@@ -125,8 +121,8 @@ class SGPR(VGPR):
 
     def predict_at_point(self, x):
         latent_dist = self.q(x, train_data=self.D)
-        predictive_dist = self.q.posterior.likelihood(latent_dist)
-        return predictive_dist.mean(), predictive_dist.stddev()**2
+        predictive_dist = self.q.model.likelihood(latent_dist)
+        return predictive_dist.mean, predictive_dist.variance
 
 class SVGP(VGPR):
     
@@ -149,20 +145,18 @@ class SVGP(VGPR):
         super().__init__(x_initial, y_initial, z_initial, kernel, mean, obs_noise, learning_rate, num_iters, batch_size, **kw)
 
     def optimize(self, key):
-        likelihood = gpx.likelihoods.Gaussian(
-            num_datapoints=self.D.n, obs_stddev=self.noise
+        likelihood = _freeze_obs_noise(
+            gpx.likelihoods.Gaussian(obs_stddev=self.noise)
         )
-        likelihood = likelihood.replace_trainable(obs_stddev=False)
 
         if self.q is not None:
-            posterior = self.q.posterior.prior * likelihood
+            posterior = self.q.model.prior * likelihood
         else:
             posterior = self.prior * likelihood
 
-        q = gpx.variational_families.VariationalGaussian(posterior=posterior, inducing_inputs=self.z)
+        q = gpx.variational_families.VariationalGaussian(model=posterior, inducing_inputs=self.z)
 
-        negative_elbo = gpx.objectives.ELBO(negative=True)
-        negative_elbo = jit(negative_elbo)
+        negative_elbo = jit(lambda model, data: -gpx.objectives.elbo(model, data))
 
         schedule = ox.warmup_cosine_decay_schedule(
             init_value=0.0,
@@ -185,16 +179,16 @@ class SVGP(VGPR):
         )
 
         self.q = opt_q
-        self.z = opt_q.inducing_inputs
+        self.z = gpx.parameters.val(opt_q.inducing_inputs)
 
         self.steps += 1
 
         return negative_elbo(opt_q, self.D)
 
     def predict_at_point(self, x):
-        latent_dist = self.q(x)
-        predictive_dist = self.q.posterior.likelihood(latent_dist)
-        return predictive_dist.mean(), predictive_dist.stddev()**2
+        latent_dist = self.q(x, train_data=self.D)
+        predictive_dist = self.q.model.likelihood(latent_dist)
+        return predictive_dist.mean, predictive_dist.variance
 
 class SMGPR(MGPR):
 

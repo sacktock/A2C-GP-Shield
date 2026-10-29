@@ -6,7 +6,6 @@ import jax
 from jax.tree_util import tree_map, tree_reduce
 import jax.numpy as jnp
 import optax
-import tensorflow_probability.substrates.jax as tfp
 from flax.linen.initializers import constant
 from flax.training.train_state import TrainState
 import jax.random as jr
@@ -17,8 +16,12 @@ from functools import partial
 from gpshield.agents import squash_sin
 from gpshield.moments import Moments
 from gpshield.common.stats import Summary_Stats
-
-tfd = tfp.distributions
+from gpshield.common.distributions import (
+    Categorical,
+    Distribution,
+    Independent,
+    MultivariateNormalDiag,
+)
 
 def summary_stats(values, prefix=None):
     stats = {
@@ -234,7 +237,7 @@ class Actor(nn.Module):
         super().__post_init__()
 
     @nn.compact
-    def __call__(self, x: jnp.ndarray) -> tfd.Distribution:  # type: ignore[name-defined]
+    def __call__(self, x: jnp.ndarray) -> Distribution:
         x = Flatten()(x)
         x = nn.Dense(self.n_units)(x)
         x = self.activation_fn(x)
@@ -244,13 +247,13 @@ class Actor(nn.Module):
         if self.num_discrete_choices is None:
             # Continuous actions
             log_std = self.param("log_std", constant(self.log_std_init), (self.action_dim,))
-            dist = tfd.MultivariateNormalDiag(loc=action_logits, scale_diag=jnp.exp(log_std))
+            dist = MultivariateNormalDiag(loc=action_logits, scale_diag=jnp.exp(log_std))
         elif isinstance(self.num_discrete_choices, int):
-            dist = tfd.Categorical(logits=action_logits)
+            dist = Categorical(logits=action_logits)
         else:
             # Split action_logits = (batch_size, total_choices=sum(self.num_discrete_choices))
             action_logits = jnp.split(action_logits, self.split_indices, axis=1)
-            # Pad to the maximum number of choices (required by tfp.distributions.Categorical).
+            # Pad to the maximum number of choices.
             # Pad by -inf, so that the probability of these invalid actions is 0.
             logits_padded = jnp.stack(
                 [
@@ -266,8 +269,8 @@ class Actor(nn.Module):
                 ],
                 axis=1,
             )
-            dist = tfp.distributions.Independent(
-                tfp.distributions.Categorical(logits=logits_padded), reinterpreted_batch_ndims=1
+            dist = Independent(
+                Categorical(logits=logits_padded), reinterpreted_batch_ndims=1
             )
         return dist
 

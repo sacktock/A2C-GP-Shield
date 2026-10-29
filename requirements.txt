@@ -1,12 +1,10 @@
 gymnasium[mujoco]
 numpy
 scipy
-jax==0.10.2
+jax
 jaxlib
 gpjax==1.0.0
-tensorflow==2.18.*
-tensorflow-probability==0.25.0
-tf-keras
+tensorflow
 optax
 flax
 cola-ml

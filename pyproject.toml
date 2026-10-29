@@ -12,12 +12,10 @@ dependencies = [
   "gymnasium[mujoco]",
   "numpy",
   "scipy",
-  "jax==0.10.2",
+  "jax",
   "jaxlib",
   "gpjax==1.0.0",
-  "tensorflow==2.18.*",
-  "tensorflow-probability==0.25.0",
-  "tf-keras",
+  "tensorflow",
   "optax",
   "flax",
   "cola-ml",
@@ -37,8 +35,8 @@ include = ["gpshield", "gpshield.*"]
 
 [dependency-groups]
 dev = ["pytest>=8.0.0"]
-cuda12 = ["jax[cuda12]==0.10.2"]
-cuda13 = ["jax[cuda13]==0.10.2"]
+cuda12 = ["jax[cuda12]"]
+cuda13 = ["jax[cuda13]"]
 
 [tool.uv]
 conflicts = [[{ group = "cuda12" }, { group = "cuda13" }]]

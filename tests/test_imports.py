@@ -14,7 +14,6 @@ REQUIRED_MODULES = [
     "jax",
     "jaxlib",
     "tensorflow",
-    "tensorflow_probability",
 ]
 
 
