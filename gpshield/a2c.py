@@ -294,7 +294,7 @@ class A2C_Agent(JAXAgent):
         device='auto',
     ):
 
-        assert isinstance(key, jax._src.prng.PRNGKeyArray)
+        assert jax.dtypes.issubdtype(key.dtype, jax.dtypes.prng_key)
         assert isinstance(observation_space, gymnasium.spaces.Box)
         assert isinstance(action_space, gymnasium.spaces.Box) or isinstance(action_space, gymnasium.spaces.Discrete)
         assert type(n_envs) is int

@@ -132,7 +132,7 @@ class GPR():
 
         self.steps += 1
 
-        return negative_mll(opt_posterior, train_data=self.D)
+        return negative_mll(opt_posterior, self.D)
 
     def predict_at_point(self, x):
         latent_dist = self.posterior.predict(x, train_data=self.D)
