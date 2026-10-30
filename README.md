@@ -72,7 +72,7 @@ uv sync --group cuda12
 uv sync --group cuda13
 ```
 
-`jax`, `jaxlib`, and `tensorflow` are unpinned. The current lock resolves `jax` and `jaxlib` to 0.10.2, which is the newest release inside GPJAX's bound and the one that ships both CUDA extras, and `tensorflow` to 2.18.1. `gpjax` stays pinned at `1.0.0`.
+Direct dependencies have lower bounds. `gpjax` stays pinned at `1.0.0`, which still requires `jax<0.11`, so the lock resolves `jax` and `jaxlib` to 0.10.2 (the newest release inside that bound, and the one that ships both CUDA extras). `numpyro` is at least 0.21 so it imports against that JAX. `tensorflow` resolves to 2.21.0.
 
 MuJoCo (used by the Hopper environment) is installed through the `gymnasium[mujoco]` extra and does not need a separate step.
 

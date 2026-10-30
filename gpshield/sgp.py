@@ -5,7 +5,6 @@ from jax import jit
 import gpjax as gpx
 import optax as ox
 from jax import lax
-import cola
 from gpshield.gp import GPR, MGPR, _freeze_obs_noise, matrix_diagonal, tensor_diagonal, matrix_transpose, tensor_transpose
 from functools import partial
 

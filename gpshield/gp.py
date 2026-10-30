@@ -8,7 +8,6 @@ import gpjax as gpx
 import optax as ox
 import paramax
 from jax import lax
-import cola
 import numpy as np
 
 def _freeze_obs_noise(likelihood):
