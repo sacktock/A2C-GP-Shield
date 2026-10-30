@@ -9,6 +9,7 @@ from gymnasium.wrappers import RecordVideo
 
 import argparse
 import importlib
+import importlib.resources as resources
 import jax.random as jr
 import jax.numpy as jnp
 import time
@@ -23,7 +24,7 @@ from gpshield.agents import Random_Agent, Linear_Agent
 
 from gpshield.common.logger import RolloutLogger, TrainLogger
 from gpshield.common.buffer import TransitionBuffer, StateBuffer, PrioritizedStateBuffer, NoveltyStateBuffer
-from gpshield.common.config import Config, Flags, Path
+from gpshield.common.config import Config, Flags
 
 import tensorflow as tf
 
@@ -148,8 +149,9 @@ def rollout_with_shield(key, env, agent, dynamics_model, shield_fn, timesteps, l
 def main(argv=None):
 
     parsed, other = Flags(configs=['defaults']).parse_known(argv)
-    configs = yaml.YAML(typ='safe').load(
-      (Path(__file__).parent / 'configs.yaml').read())
+    configs = yaml.YAML(typ="safe").load(
+        resources.files("gpshield").joinpath("configs.yaml").read_text()
+    )
     config = Config(configs['defaults'])
     for name in parsed.configs:
         config = config.update(configs[name])

@@ -74,7 +74,12 @@ uv sync --group cuda13
 
 Direct dependencies have lower bounds. `gpjax` stays pinned at `1.0.0`, which still requires `jax<0.11`, so the lock resolves `jax` and `jaxlib` to 0.10.2 (the newest release inside that bound, and the one that ships both CUDA extras). `numpyro` is at least 0.21 so it imports against that JAX. `tensorflow` resolves to 2.21.0.
 
-MuJoCo (used by the Hopper environment) is installed through the `gymnasium[mujoco]` extra and does not need a separate step.
+MuJoCo (used by Hopper) is installed through the `gymnasium[mujoco]` extra. On a headless Linux machine, also install OSMesa and select it, or `Hopper-v5` fails while importing its renderer:
+
+```bash
+sudo apt-get install -y libosmesa6 libgl1 libglib2.0-0
+export MUJOCO_GL=osmesa PYOPENGL_PLATFORM=osmesa
+```
 
 ## How to run GP-Shield
 
