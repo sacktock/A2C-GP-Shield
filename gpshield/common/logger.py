@@ -72,7 +72,9 @@ class RolloutLogger:
 
         if self.start_time is not None:
             current_time = time.time()
-            stats_to_log['fps'] = step/(current_time - self.start_time)
+            elapsed = current_time - self.start_time
+            if elapsed > 0:
+                stats_to_log['fps'] = step / elapsed
     
         if self.tensorboard:
             with self.summary_writer.as_default():
