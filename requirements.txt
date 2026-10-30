@@ -1,0 +1,14 @@
+gymnasium[mujoco]>=1.3.0
+numpy>=1.26.4
+scipy>=1.14
+jax>=0.7.0
+jaxlib>=0.7.0
+gpjax==1.0.0
+numpyro>=0.21.0
+tensorflow>=2.20.0
+tensorboard>=2.17.1
+optax>=0.1.9
+flax>=0.9.0
+tqdm>=4.66.5
+ruamel.yaml>=0.18.0,<0.20.0
+pygame>=2.6.1
