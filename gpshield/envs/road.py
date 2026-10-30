@@ -1,9 +1,9 @@
-from gpshield.envs.base import BaseEnv 
+from gpshield.envs.base import BaseEnv
 import numpy as np
 from gpshield.agents import Linear_Agent
 
-class ContinuousRoad(BaseEnv):
 
+class ContinuousRoad(BaseEnv):
     metadata = {
         "render_modes": [],
         "render_fps": -1,
@@ -38,11 +38,20 @@ class ContinuousRoad(BaseEnv):
             ]
         )
 
-        super().__init__((2,), (1,), low, high, min_action, max_action,max_episode_steps=max_episode_steps, continuous=True, **kwargs) # obs_dim act_dim obs_low obs_high act_low act_high max_episode_steps= continuous=True **kwargs
+        super().__init__(
+            (2,),
+            (1,),
+            low,
+            high,
+            min_action,
+            max_action,
+            max_episode_steps=max_episode_steps,
+            continuous=True,
+            **kwargs,
+        )  # obs_dim act_dim obs_low obs_high act_low act_high max_episode_steps= continuous=True **kwargs
 
         # render stuff
         self.render_mode = None
-
 
     def _step(self, state, action):
         state = state.copy()
@@ -63,7 +72,7 @@ class ContinuousRoad(BaseEnv):
     @property
     def _reward_function(self):
         if self.reward_id == "rew_v1":
-            return lambda s, a, ns: ns[0] - s[0] if not self._done(ns) else 20.
+            return lambda s, a, ns: ns[0] - s[0] if not self._done(ns) else 20.0
         else:
             raise NotImplementedError
 
@@ -74,7 +83,7 @@ class ContinuousRoad(BaseEnv):
     @property
     def _safety_constraints(self):
         return {
-            'boundaries': [
+            "boundaries": [
                 np.array([[-0.01, 0.01]]),
             ],
         }
@@ -85,9 +94,11 @@ class ContinuousRoad(BaseEnv):
 
     @property
     def _stable_set(self):
-        return np.array([
-            [-0.01, 0.01],
-        ])
+        return np.array(
+            [
+                [-0.01, 0.01],
+            ]
+        )
 
     @property
     def _stable_axes(self):
@@ -95,9 +106,10 @@ class ContinuousRoad(BaseEnv):
 
     @property
     def _backup(self):
-        return Linear_Agent(None,
-                self.observation_space.shape[0],
-                self.action_space.shape[0],
-                action_limit=2.0,
-                weights=[[0.0, -14.0425]]
+        return Linear_Agent(
+            None,
+            self.observation_space.shape[0],
+            self.action_space.shape[0],
+            action_limit=2.0,
+            weights=[[0.0, -14.0425]],
         )

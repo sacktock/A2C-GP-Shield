@@ -5,33 +5,50 @@ from jax import jit
 import gpjax as gpx
 import optax as ox
 from jax import lax
-from gpshield.gp import GPR, MGPR, _freeze_obs_noise, matrix_diagonal, tensor_diagonal, matrix_transpose, tensor_transpose
+from gpshield.gp import (
+    GPR,
+    MGPR,
+    _freeze_obs_noise,
+    matrix_diagonal,
+    tensor_diagonal,
+    matrix_transpose,
+    tensor_transpose,
+)
 from functools import partial
 
+
 class VGPR(GPR):
-
     """
-    Variational gaussian process regression 
+    Variational gaussian process regression
     """
 
-    def __init__(self, 
-            x_initial, 
-            y_initial, 
-            z_initial, 
-            kernel=gpx.kernels.RBF(), 
-            mean=gpx.mean_functions.Zero(), 
-            obs_noise=1e-6, 
-            learning_rate=0.01, 
-            num_iters=100, 
-            batch_size=64,
-            **kw):
+    def __init__(
+        self,
+        x_initial,
+        y_initial,
+        z_initial,
+        kernel=gpx.kernels.RBF(),
+        mean=gpx.mean_functions.Zero(),
+        obs_noise=1e-6,
+        learning_rate=0.01,
+        num_iters=100,
+        batch_size=64,
+        **kw,
+    ):
 
-        
-        super().__init__(x_initial, y_initial, kernel, mean, obs_noise, learning_rate, num_iters, **kw)
+        super().__init__(
+            x_initial,
+            y_initial,
+            kernel,
+            mean,
+            obs_noise,
+            learning_rate,
+            num_iters,
+            **kw,
+        )
         self.z = z_initial
         self.prior = gpx.gps.Prior(mean_function=mean, kernel=kernel, jitter=1e-5)
         self.q = None
-        
 
     def optimize(self, key):
         raise NotImplementedError
@@ -64,29 +81,39 @@ class VGPR(GPR):
 
 
 class SGPR(VGPR):
-
     """
     (Collpased) stochastic sparse gaussian processes regression
     """
 
-    def __init__(self, 
-            x_initial, 
-            y_initial,
-            z_initial, 
-            kernel=gpx.kernels.RBF(),
-            mean=gpx.mean_functions.Zero(), 
-            obs_noise=1e-6, 
-            learning_rate=0.001, 
-            num_iters=500, 
-            batch_size=64,
-            **kw):
+    def __init__(
+        self,
+        x_initial,
+        y_initial,
+        z_initial,
+        kernel=gpx.kernels.RBF(),
+        mean=gpx.mean_functions.Zero(),
+        obs_noise=1e-6,
+        learning_rate=0.001,
+        num_iters=500,
+        batch_size=64,
+        **kw,
+    ):
 
-        super().__init__(x_initial, y_initial, z_initial, kernel, mean, obs_noise, learning_rate, num_iters, batch_size, **kw)
+        super().__init__(
+            x_initial,
+            y_initial,
+            z_initial,
+            kernel,
+            mean,
+            obs_noise,
+            learning_rate,
+            num_iters,
+            batch_size,
+            **kw,
+        )
 
     def optimize(self, key):
-        likelihood = _freeze_obs_noise(
-            gpx.likelihoods.Gaussian(obs_stddev=self.noise)
-        )
+        likelihood = _freeze_obs_noise(gpx.likelihoods.Gaussian(obs_stddev=self.noise))
 
         if self.q is not None:
             posterior = self.q.model.prior * likelihood
@@ -123,37 +150,50 @@ class SGPR(VGPR):
         predictive_dist = self.q.model.likelihood(latent_dist)
         return predictive_dist.mean, predictive_dist.variance
 
+
 class SVGP(VGPR):
-    
     """
     (Uncollapsed) sparse variational gaussian process regression
     """
 
-    def __init__(self, 
-            x_initial, 
+    def __init__(
+        self,
+        x_initial,
+        y_initial,
+        z_initial,
+        kernel=gpx.kernels.RBF(),
+        mean=gpx.mean_functions.Zero(),
+        obs_noise=1e-6,
+        learning_rate=0.001,
+        num_iters=3000,
+        batch_size=64,
+        **kw,
+    ):
+
+        super().__init__(
+            x_initial,
             y_initial,
             z_initial,
-            kernel=gpx.kernels.RBF(),
-            mean=gpx.mean_functions.Zero(),
-            obs_noise=1e-6,
-            learning_rate=0.001,
-            num_iters=3000,
-            batch_size=64,
-            **kw):
-
-        super().__init__(x_initial, y_initial, z_initial, kernel, mean, obs_noise, learning_rate, num_iters, batch_size, **kw)
+            kernel,
+            mean,
+            obs_noise,
+            learning_rate,
+            num_iters,
+            batch_size,
+            **kw,
+        )
 
     def optimize(self, key):
-        likelihood = _freeze_obs_noise(
-            gpx.likelihoods.Gaussian(obs_stddev=self.noise)
-        )
+        likelihood = _freeze_obs_noise(gpx.likelihoods.Gaussian(obs_stddev=self.noise))
 
         if self.q is not None:
             posterior = self.q.model.prior * likelihood
         else:
             posterior = self.prior * likelihood
 
-        q = gpx.variational_families.VariationalGaussian(model=posterior, inducing_inputs=self.z)
+        q = gpx.variational_families.VariationalGaussian(
+            model=posterior, inducing_inputs=self.z
+        )
 
         negative_elbo = jit(lambda model, data: -gpx.objectives.elbo(model, data))
 
@@ -189,9 +229,18 @@ class SVGP(VGPR):
         predictive_dist = self.q.model.likelihood(latent_dist)
         return predictive_dist.mean, predictive_dist.variance
 
-class SMGPR(MGPR):
 
-    def __init__(self, key, x_initial, y_initial, z_initial=None, collapsed=False, num_inducing_inputs=500, **gp_kwargs):
+class SMGPR(MGPR):
+    def __init__(
+        self,
+        key,
+        x_initial,
+        y_initial,
+        z_initial=None,
+        collapsed=False,
+        num_inducing_inputs=500,
+        **gp_kwargs,
+    ):
 
         self.z_initial = z_initial
         self.collapsed = collapsed
@@ -207,7 +256,7 @@ class SMGPR(MGPR):
             key, subkey = jr.split(key)
             if self.z_initial is None:
                 z = jr.uniform(subkey, shape=(self.num_inducing_inputs, self.n_ins))
-            else: 
+            else:
                 z = jnp.array(self.z_initial)
             if self.collapsed:
                 model = SGPR(X, y, z, kernel=kernel, mean=mean, **self.gp_kwargs)
@@ -215,14 +264,25 @@ class SMGPR(MGPR):
                 model = SVGP(X, y, z, kernel=kernel, mean=mean, **self.gp_kwargs)
             self.models.append(model)
 
-    def calculate_factorization(self):        
+    def calculate_factorization(self):
         Kmm = self.K(self.Z)
         Kmn = self.K(self.Z, self.X)
-        return self._calculate_factorization(self.num_inducing_inputs, self.n_outs, Kmm, Kmn, self.Y, self.noise, self.variance, lower=True)
+        return self._calculate_factorization(
+            self.num_inducing_inputs,
+            self.n_outs,
+            Kmm,
+            Kmn,
+            self.Y,
+            self.noise,
+            self.variance,
+            lower=True,
+        )
 
     @staticmethod
     @partial(jit, static_argnames=["num_inducing_inputs", "n_outs", "lower"])
-    def _calculate_factorization(num_inducing_inputs, n_outs, Kmm, Kmn, Y, noise, variance, lower=True):
+    def _calculate_factorization(
+        num_inducing_inputs, n_outs, Kmm, Kmn, Y, noise, variance, lower=True
+    ):
         I = jnp.tile(jnp.eye(num_inducing_inputs), (n_outs, 1, 1))
 
         # TODO change to jitter value
@@ -237,7 +297,9 @@ class SMGPR(MGPR):
 
         V = V / G[:, None]
 
-        Am = jax.scipy.linalg.cholesky(jnp.matmul(V, matrix_transpose(V)) + noise[:, None, None] * I, lower=lower)
+        Am = jax.scipy.linalg.cholesky(
+            jnp.matmul(V, matrix_transpose(V)) + noise[:, None, None] * I, lower=lower
+        )
 
         At = jnp.matmul(L, Am)
 
@@ -245,8 +307,13 @@ class SMGPR(MGPR):
 
         Y_ = jnp.transpose(Y)[:, :, None]
 
-        beta = jax.scipy.linalg.solve_triangular(L, jax.scipy.linalg.cho_solve((Am, lower), jnp.matmul(V / G[:, None], Y_)), lower=lower, trans=1)[:, :, 0]
-        
+        beta = jax.scipy.linalg.solve_triangular(
+            L,
+            jax.scipy.linalg.cho_solve((Am, lower), jnp.matmul(V / G[:, None], Y_)),
+            lower=lower,
+            trans=1,
+        )[:, :, 0]
+
         iB = jnp.matmul(matrix_transpose(iAt), iAt) * noise[:, None, None]
         iK = jax.scipy.linalg.cho_solve((L, lower), I) - iB
 

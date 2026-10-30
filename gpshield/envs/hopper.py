@@ -6,8 +6,8 @@ from gpshield.envs.base import AbstractEnv
 from gpshield.agents import Linear_Agent
 from scipy.spatial import ConvexHull
 
-class MuJoCoEnv(AbstractEnv):
 
+class MuJoCoEnv(AbstractEnv):
     metadata = {
         "render_modes": [],
         "render_fps": -1,
@@ -22,13 +22,13 @@ class MuJoCoEnv(AbstractEnv):
             self._env.observation_space.low,
             self._env.observation_space.high,
             shape=self._env.observation_space.shape,
-            dtype=np.float64
+            dtype=np.float64,
         )
         self.action_space = gymnasium.spaces.Box(
             self._env.action_space.low,
             self._env.action_space.high,
             shape=self._env.action_space.shape,
-            dtype=np.float64
+            dtype=np.float64,
         )
 
         self.continuous = True
@@ -69,7 +69,10 @@ class MuJoCoEnv(AbstractEnv):
 
         self.state = next_state
         self.info = info
-        noise = self.np_random.standard_normal(self.observation_space.shape) * self.obs_noise
+        noise = (
+            self.np_random.standard_normal(self.observation_space.shape)
+            * self.obs_noise
+        )
         return self.state + noise, reward, terminated, truncated, self.info
 
     def set_render_override(self, val):
@@ -86,12 +89,12 @@ class MuJoCoEnv(AbstractEnv):
 
     def _safe(self, state):
         raise NotImplementedError
-    
+
     def _done(self, state):
         return self._terminal_function(state)
 
     def _info(self, state):
-        return {'is_safe': self._safe(state)}
+        return {"is_safe": self._safe(state)}
 
     @property
     def requires_reset(self):
@@ -105,9 +108,8 @@ class MuJoCoEnv(AbstractEnv):
 
 
 class HopperV5(MuJoCoEnv):
-
     def __init__(self, *args, max_episode_steps=1000, **kwargs):
-        self._env = gymnasium.make('Hopper-v5', max_episode_steps=max_episode_steps)
+        self._env = gymnasium.make("Hopper-v5", max_episode_steps=max_episode_steps)
         super().__init__(**kwargs)
 
         # deafults
@@ -158,7 +160,7 @@ class HopperV5(MuJoCoEnv):
 
     def healthy_reward(self, state):
         return self._is_healthy(state) * self._healthy_reward
-    
+
     @property
     def _init_state_function(self):
 
@@ -167,36 +169,50 @@ class HopperV5(MuJoCoEnv):
 
         init_qpos = np.array([1.25, 0.0, 0.0, 0.0, 0.0], dtype=np.float64)
         init_qvel = np.zeros(6, dtype=np.float64)
-        return lambda: np.concatenate([
-                init_qpos + self.np_random.uniform(low=noise_low, high=noise_high, size=init_qpos.shape), 
-                init_qvel + self.np_random.uniform(low=noise_low, high=noise_high, size=init_qvel.shape)
-            ]) 
+        return lambda: np.concatenate(
+            [
+                init_qpos
+                + self.np_random.uniform(
+                    low=noise_low, high=noise_high, size=init_qpos.shape
+                ),
+                init_qvel
+                + self.np_random.uniform(
+                    low=noise_low, high=noise_high, size=init_qvel.shape
+                ),
+            ]
+        )
 
     @property
     def _reward_function(self):
-        return lambda s, a, ns: self._forward_reward_weight * ns[5] + self._is_healthy(ns) * self._healthy_reward - self.control_cost(a)
+        return lambda s, a, ns: (
+            self._forward_reward_weight * ns[5]
+            + self._is_healthy(ns) * self._healthy_reward
+            - self.control_cost(a)
+        )
 
-    @property 
+    @property
     def _terminal_function(self):
         return lambda s: not self._is_healthy(s)
 
     @property
     def _safety_constraints(self):
         return {
-            'boundaries': [
-                np.array([
-                    list(self._healthy_z_range),
-                    list(self._healthy_angle_range),
-                    list(self._healthy_state_range),
-                    list(self._healthy_state_range),
-                    list(self._healthy_state_range),
-                    list(self._healthy_state_range),
-                    list(self._healthy_state_range),
-                    list(self._healthy_state_range),
-                    list(self._healthy_state_range),
-                    list(self._healthy_state_range),
-                    list(self._healthy_state_range),
-                ])
+            "boundaries": [
+                np.array(
+                    [
+                        list(self._healthy_z_range),
+                        list(self._healthy_angle_range),
+                        list(self._healthy_state_range),
+                        list(self._healthy_state_range),
+                        list(self._healthy_state_range),
+                        list(self._healthy_state_range),
+                        list(self._healthy_state_range),
+                        list(self._healthy_state_range),
+                        list(self._healthy_state_range),
+                        list(self._healthy_state_range),
+                        list(self._healthy_state_range),
+                    ]
+                )
             ],
         }
 
@@ -210,7 +226,7 @@ class HopperV5(MuJoCoEnv):
 
     @property
     def _stable_set(self):
-        return ConvexHull(self.hull_points, qhull_options='QJ Qbb Qc')
+        return ConvexHull(self.hull_points, qhull_options="QJ Qbb Qc")
 
     @property
     def _backup(self):
@@ -221,13 +237,5 @@ class HopperV5(MuJoCoEnv):
             action_limit=1.0,
             weights=-self.K,
             input_bias=self.x0,
-            output_bias=self.u0)
-
-
-
-
-
-    
-
-    
-
+            output_bias=self.u0,
+        )

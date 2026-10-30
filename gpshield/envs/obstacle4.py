@@ -1,9 +1,9 @@
-from gpshield.envs.base import BaseEnv 
+from gpshield.envs.base import BaseEnv
 import numpy as np
 from gpshield.agents import Linear_Agent
 
-class ContinuousObstacle4(BaseEnv):
 
+class ContinuousObstacle4(BaseEnv):
     metadata = {
         "render_modes": [],
         "render_fps": -1,
@@ -24,7 +24,6 @@ class ContinuousObstacle4(BaseEnv):
         min_action = -2.0 * np.ones(2)
         max_action = 2.0 * np.ones(2)
 
-
         low = np.array(
             [
                 self.min_position,
@@ -43,11 +42,20 @@ class ContinuousObstacle4(BaseEnv):
             ]
         )
 
-        super().__init__((4,), (2,), low, high, min_action, max_action, max_episode_steps=max_episode_steps, continuous=True, **kwargs) # obs_dim act_dim obs_low obs_high act_low act_high max_episode_steps= continuous=True **kwargs
+        super().__init__(
+            (4,),
+            (2,),
+            low,
+            high,
+            min_action,
+            max_action,
+            max_episode_steps=max_episode_steps,
+            continuous=True,
+            **kwargs,
+        )  # obs_dim act_dim obs_low obs_high act_low act_high max_episode_steps= continuous=True **kwargs
 
         # render stuff
         self.render_mode = None
-
 
     def _step(self, state, action):
         state = state.copy()
@@ -70,13 +78,19 @@ class ContinuousObstacle4(BaseEnv):
     @property
     def _reward_function(self):
         if self.reward_id == "rew_v1":
-            def rew_fn(s, a , ns):
-                if np.all(ns[:2] > self.goal_position) and not np.all(s[:2] > self.goal_position):
-                    return 30.
+
+            def rew_fn(s, a, ns):
+                if np.all(ns[:2] > self.goal_position) and not np.all(
+                    s[:2] > self.goal_position
+                ):
+                    return 30.0
                 elif np.all(s[:2] > self.goal_position):
                     return 0.0
                 else:
-                    return np.linalg.norm(s[:2] - self.goal_position) - np.linalg.norm(ns[:2] - self.goal_position)
+                    return np.linalg.norm(s[:2] - self.goal_position) - np.linalg.norm(
+                        ns[:2] - self.goal_position
+                    )
+
             return rew_fn
         else:
             raise NotImplementedError
@@ -88,22 +102,28 @@ class ContinuousObstacle4(BaseEnv):
     @property
     def _safety_constraints(self):
         return {
-            'obstacles': [
-                np.array([
-                    [1.5, 2.0],
-                    [1.5, 2.5],
-                ]),
-                np.array([
-                    [2.0, 2.5],
-                    [0.5, 1.0],
-                ]),
+            "obstacles": [
+                np.array(
+                    [
+                        [1.5, 2.0],
+                        [1.5, 2.5],
+                    ]
+                ),
+                np.array(
+                    [
+                        [2.0, 2.5],
+                        [0.5, 1.0],
+                    ]
+                ),
             ],
-            'boundaries': [
-                np.array([
-                    [-np.inf, 3.0],
-                    [-np.inf, np.inf],
-                ]),
-            ]
+            "boundaries": [
+                np.array(
+                    [
+                        [-np.inf, 3.0],
+                        [-np.inf, np.inf],
+                    ]
+                ),
+            ],
         }
 
     @property
@@ -112,10 +132,7 @@ class ContinuousObstacle4(BaseEnv):
 
     @property
     def _stable_set(self):
-        return np.array([
-            [-np.inf, np.inf],
-            [-np.inf, np.inf]
-        ])
+        return np.array([[-np.inf, np.inf], [-np.inf, np.inf]])
 
     @property
     def _stable_axes(self):
@@ -123,10 +140,10 @@ class ContinuousObstacle4(BaseEnv):
 
     @property
     def _backup(self):
-        return Linear_Agent(None,
-                self.observation_space.shape[0],
-                self.action_space.shape[0],
-                action_limit=2.0,
-                weights=[[0.0, 0.0, -30.6386, 0.0],
-                        [0.0, 0.0, 0.0, -30.6386]]
+        return Linear_Agent(
+            None,
+            self.observation_space.shape[0],
+            self.action_space.shape[0],
+            action_limit=2.0,
+            weights=[[0.0, 0.0, -30.6386, 0.0], [0.0, 0.0, 0.0, -30.6386]],
         )

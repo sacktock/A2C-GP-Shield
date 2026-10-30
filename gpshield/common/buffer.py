@@ -1,14 +1,15 @@
-
 import gymnasium
 import numpy as np
 from collections import defaultdict
 
-class BaseBuffer:
 
+class BaseBuffer:
     def __init__(self, buffer_size, observation_space, action_space):
         assert type(buffer_size) is int
         assert isinstance(observation_space, gymnasium.spaces.Box)
-        assert isinstance(action_space, gymnasium.spaces.Box) or isinstance(action_space, gymnasium.spaces.Discrete)
+        assert isinstance(action_space, gymnasium.spaces.Box) or isinstance(
+            action_space, gymnasium.spaces.Discrete
+        )
 
         self.buffer_size = buffer_size
         self.observation_space = observation_space
@@ -38,8 +39,8 @@ class BaseBuffer:
     def get(self):
         raise NotImplementedError
 
-class TransitionBuffer(BaseBuffer):
 
+class TransitionBuffer(BaseBuffer):
     def __init__(self, buffer_size, observation_space, action_space):
         super().__init__(buffer_size, observation_space, action_space)
 
@@ -47,8 +48,10 @@ class TransitionBuffer(BaseBuffer):
         super().reset()
         self.states = np.zeros((self.buffer_size, *self.input_shape), dtype=np.float64)
         self.actions = np.zeros((self.buffer_size, self.action_dim), dtype=np.float64)
-        self.next_states = np.zeros((self.buffer_size, *self.input_shape), dtype=np.float64)
-        
+        self.next_states = np.zeros(
+            (self.buffer_size, *self.input_shape), dtype=np.float64
+        )
+
     def add(self, new_states, new_actions, new_next_states):
 
         new_states = np.array(new_states, dtype=np.float64)
@@ -63,7 +66,10 @@ class TransitionBuffer(BaseBuffer):
 
         assert len(new_states) == len(new_actions) == len(new_next_states)
 
-        indices = [pos % self.buffer_size for pos in range(self.pos, self.pos + len(new_states))]
+        indices = [
+            pos % self.buffer_size
+            for pos in range(self.pos, self.pos + len(new_states))
+        ]
 
         self.pos = self.pos + len(new_states)
 
@@ -79,10 +85,14 @@ class TransitionBuffer(BaseBuffer):
         if self.full:
             return self.states, self.actions, self.next_states
         else:
-            return self.states[:self.pos], self.actions[:self.pos], self.next_states[:self.pos]
+            return (
+                self.states[: self.pos],
+                self.actions[: self.pos],
+                self.next_states[: self.pos],
+            )
+
 
 class StateBuffer(BaseBuffer):
-
     def __init__(self, buffer_size, observation_space, action_space):
         super().__init__(buffer_size, observation_space, action_space)
 
@@ -97,7 +107,10 @@ class StateBuffer(BaseBuffer):
 
         batch_size = len(new_states)
 
-        indices = [pos % self.buffer_size for pos in range(self.pos, self.pos + len(new_states))]
+        indices = [
+            pos % self.buffer_size
+            for pos in range(self.pos, self.pos + len(new_states))
+        ]
 
         self.pos = self.pos + len(new_states)
 
@@ -111,7 +124,7 @@ class StateBuffer(BaseBuffer):
         if self.full:
             return self.states
         else:
-            return self.states[:self.pos]
+            return self.states[: self.pos]
 
     def sample(self, batch_size, **kwargs):
         n = self.buffer_size if self.full else self.pos
@@ -120,8 +133,9 @@ class StateBuffer(BaseBuffer):
 
 
 class PrioritizedStateBuffer(StateBuffer):
-
-    def __init__(self, buffer_size, observation_space, action_space, gamma=0.99, alpha=0.6):
+    def __init__(
+        self, buffer_size, observation_space, action_space, gamma=0.99, alpha=0.6
+    ):
         super().__init__(buffer_size, observation_space, action_space)
         self.gamma = gamma
         self.alpha = alpha
@@ -151,9 +165,12 @@ class PrioritizedStateBuffer(StateBuffer):
             if new_dones[step]:
                 running_return = 0.0
             running_return = new_rewards[step] + self.gamma * running_return
-            new_returns[step] = running_return 
+            new_returns[step] = running_return
 
-        indices = [pos % self.buffer_size for pos in range(self.pos, self.pos + len(new_states))]
+        indices = [
+            pos % self.buffer_size
+            for pos in range(self.pos, self.pos + len(new_states))
+        ]
 
         self.pos = self.pos + len(new_states)
 
@@ -168,34 +185,38 @@ class PrioritizedStateBuffer(StateBuffer):
         t = 0
         step = indices[0]
         running_return = self.returns[step]
-        
+
         if self.full:
             while True:
                 step = (step - 1) % self.buffer_size
                 t = t + 1
                 if self.dones[step] or step == indices[-1]:
                     break
-                self.returns[step] = self.returns[step] + (self.gamma**t)*running_return
+                self.returns[step] = (
+                    self.returns[step] + (self.gamma**t) * running_return
+                )
         else:
             while True:
                 step = step - 1
                 t = t + 1
                 if step < 0 or self.dones[step]:
                     break
-                self.returns[step] = self.returns[step] + (self.gamma**t)*running_return
+                self.returns[step] = (
+                    self.returns[step] + (self.gamma**t) * running_return
+                )
 
     def get(self):
         if self.full:
             return self.states, self.returns
         else:
-            return self.states[:self.pos], self.returns[:self.pos]
+            return self.states[: self.pos], self.returns[: self.pos]
 
     def sample(self, batch_size, beta=0.4, **kwargs):
 
         if self.full:
             prios = self.returns - np.min(self.returns)
         else:
-            prios = self.returns[:self.pos] - np.min(self.returns[:self.pos])
+            prios = self.returns[: self.pos] - np.min(self.returns[: self.pos])
 
         probs = (prios + 1e-6) ** self.alpha
         probs /= probs.sum()
@@ -214,13 +235,23 @@ class PrioritizedStateBuffer(StateBuffer):
 
         return self.states[indices], weights
 
-class NoveltyStateBuffer(StateBuffer):
 
-    def __init__(self, buffer_size, observation_space, action_space, n_bins=32, alpha=0.6):
+class NoveltyStateBuffer(StateBuffer):
+    def __init__(
+        self, buffer_size, observation_space, action_space, n_bins=32, alpha=0.6
+    ):
         super().__init__(buffer_size, observation_space, action_space)
         self.n_bins = n_bins
         self.alpha = alpha
-        self.bin_edges = np.array([np.linspace(low, high, n_bins + 1) for low, high in zip(self.observation_space.low, self.observation_space.high)], dtype=np.float64)
+        self.bin_edges = np.array(
+            [
+                np.linspace(low, high, n_bins + 1)
+                for low, high in zip(
+                    self.observation_space.low, self.observation_space.high
+                )
+            ],
+            dtype=np.float64,
+        )
 
     def reset(self):
         super().reset()
@@ -228,19 +259,32 @@ class NoveltyStateBuffer(StateBuffer):
         self.bin_counts = defaultdict(int)
 
     def _discretize(self, state):
-        return np.array([np.digitize(state[i], self.bin_edges[i]) -1 for i in range(len(self.bin_edges))], dtype=np.int64)
+        return np.array(
+            [
+                np.digitize(state[i], self.bin_edges[i]) - 1
+                for i in range(len(self.bin_edges))
+            ],
+            dtype=np.int64,
+        )
 
     def add(self, new_states):
 
         new_states = np.array(new_states, dtype=np.float64)
 
-        new_states = np.clip(new_states, self.observation_space.low, self.observation_space.high)
+        new_states = np.clip(
+            new_states, self.observation_space.low, self.observation_space.high
+        )
 
         assert new_states.shape[1:] == self.input_shape
 
-        new_state_bins = np.array([self._discretize(state) for state in new_states], dtype=np.int64)
+        new_state_bins = np.array(
+            [self._discretize(state) for state in new_states], dtype=np.int64
+        )
 
-        indices = [pos % self.buffer_size for pos in range(self.pos, self.pos + len(new_states))]
+        indices = [
+            pos % self.buffer_size
+            for pos in range(self.pos, self.pos + len(new_states))
+        ]
 
         self.pos = self.pos + len(new_states)
 
@@ -260,7 +304,7 @@ class NoveltyStateBuffer(StateBuffer):
         if self.full:
             bins = self.bins
         else:
-            bins = self.bins[:self.pos]
+            bins = self.bins[: self.pos]
 
         counts = np.array([self.bin_counts[tuple(b)] for b in bins])
         probs = 1.0 / (counts + 1e-6) ** self.alpha
@@ -279,11 +323,3 @@ class NoveltyStateBuffer(StateBuffer):
         weights = np.array(weights, dtype=np.float64)
 
         return self.states[indices], weights
-
-
-
-
-
-
-
-        

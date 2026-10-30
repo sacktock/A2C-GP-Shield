@@ -2,18 +2,20 @@ import gymnasium
 import numpy as np
 from scipy.spatial import ConvexHull
 
+
 def is_inside(hull, x_new_ax):
-    A = hull.equations[:, :-1] 
+    A = hull.equations[:, :-1]
     b = hull.equations[:, -1]
     return np.all(A @ x_new_ax <= -b)
 
+
 def is_outside(hull, x_new_ax):
-    A = hull.equations[:, :-1] 
+    A = hull.equations[:, :-1]
     b = hull.equations[:, -1]
     return np.any(A @ x_new_ax + b > 0)
 
-class AbstractEnv(gymnasium.Env):
 
+class AbstractEnv(gymnasium.Env):
     metadata = {"render_modes": ["rgb_array"], "render_fps": 30}
     render_mode = None
 
@@ -104,18 +106,33 @@ class AbstractEnv(gymnasium.Env):
     def _backup(self):
         raise NotImplementedError
 
-class BaseEnv(AbstractEnv):
 
-    def __init__(self, obs_dim, act_dim, obs_low, obs_high, act_low, act_high, max_episode_steps=None, continuous=True, obs_noise=1e-6):
+class BaseEnv(AbstractEnv):
+    def __init__(
+        self,
+        obs_dim,
+        act_dim,
+        obs_low,
+        obs_high,
+        act_low,
+        act_high,
+        max_episode_steps=None,
+        continuous=True,
+        obs_noise=1e-6,
+    ):
 
         assert obs_dim == obs_low.shape == obs_high.shape
-        self.observation_space = gymnasium.spaces.Box(obs_low, obs_high, dtype=np.float64)
+        self.observation_space = gymnasium.spaces.Box(
+            obs_low, obs_high, dtype=np.float64
+        )
 
         self.obs_noise = obs_noise
 
         if continuous:
             assert act_dim == act_low.shape == act_high.shape
-            self.action_space = gymnasium.spaces.Box(act_low, act_high, dtype=np.float64)
+            self.action_space = gymnasium.spaces.Box(
+                act_low, act_high, dtype=np.float64
+            )
         else:
             assert len(act_dim.shape) == 1
             self.action_space = gymnasium.spaces.Discrete(act_dim)
@@ -166,7 +183,10 @@ class BaseEnv(AbstractEnv):
             self.steps_beyond_done += 1
 
         self.state = next_state
-        noise = self.np_random.standard_normal(self.observation_space.shape) * self.obs_noise
+        noise = (
+            self.np_random.standard_normal(self.observation_space.shape)
+            * self.obs_noise
+        )
         return self.state + noise, reward, terminated, truncated, info
 
     def apply_step(self, state, action):
@@ -195,20 +215,29 @@ class BaseEnv(AbstractEnv):
             for constraint in constraints:
                 if isinstance(constraint, np.ndarray):
                     if key == "obstacles":
-                        lower_bounds, upper_bounds = constraint[:,0], constraint[:,1]
-                        return not (np.all(state_ax > lower_bounds) and np.all(state_ax < upper_bounds))
+                        lower_bounds, upper_bounds = constraint[:, 0], constraint[:, 1]
+                        return not (
+                            np.all(state_ax > lower_bounds)
+                            and np.all(state_ax < upper_bounds)
+                        )
                     elif key == "boundaries":
-                        lower_bounds, upper_bounds = constraint[:,0], constraint[:,1]
-                        return np.all(state_ax > lower_bounds) and np.all(state_ax < upper_bounds)
+                        lower_bounds, upper_bounds = constraint[:, 0], constraint[:, 1]
+                        return np.all(state_ax > lower_bounds) and np.all(
+                            state_ax < upper_bounds
+                        )
                     else:
-                        raise NotImplementedError(f" Unexpected safety constraint type: {key}")
+                        raise NotImplementedError(
+                            f" Unexpected safety constraint type: {key}"
+                        )
                 elif isinstance(constraint, ConvexHull):
                     if key == "obstacles":
                         return is_outside(constraint, state_ax)
                     elif key == "boundaries":
                         return is_inside(constraint, state_ax)
                     else:
-                        raise NotImplementedError(f" Unexpected safety constraint type: {key}")
+                        raise NotImplementedError(
+                            f" Unexpected safety constraint type: {key}"
+                        )
                 else:
                     raise NotImplementedError("Unexpected object for safety constraint")
 
@@ -216,12 +245,8 @@ class BaseEnv(AbstractEnv):
         return self._terminal_function(state)
 
     def _info(self, state):
-        return {'is_safe': self._safe(state)}
+        return {"is_safe": self._safe(state)}
 
     @property
     def requires_reset(self):
         return (self.state is None) or (self.steps_beyond_done is not None)
-
-    
-
-    

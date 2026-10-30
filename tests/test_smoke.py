@@ -36,7 +36,9 @@ def _shrink_defaults(data):
             "logger_window_size": 1,
         }
     )
-    defaults["env"].update({"env_id": "cartpole", "max_episode_steps": 8, "obs_noise": 0.0})
+    defaults["env"].update(
+        {"env_id": "cartpole", "max_episode_steps": 8, "obs_noise": 0.0}
+    )
     defaults["shield"]["lookahead"] = 1
     defaults["gp"].update(
         {
@@ -123,7 +125,9 @@ def test_init_dynamics_and_actor_critic(tiny_defaults):
         if terminated or truncated:
             obs, _ = env.reset()
 
-    buffer = TransitionBuffer(int(config.gp.buffer_size), env.observation_space, env.action_space)
+    buffer = TransitionBuffer(
+        int(config.gp.buffer_size), env.observation_space, env.action_space
+    )
     buffer.add(states, actions, next_states)
 
     key = jr.key(int(config.seed))

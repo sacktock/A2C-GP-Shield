@@ -10,6 +10,7 @@ import paramax
 from jax import lax
 import numpy as np
 
+
 def _freeze_obs_noise(likelihood):
     """Hold the observation noise fixed while the kernel hyperparameters train."""
     return eqx.tree_at(
@@ -17,6 +18,7 @@ def _freeze_obs_noise(likelihood):
         likelihood,
         replace_fn=paramax.non_trainable,
     )
+
 
 @jit
 def matrix_diagonal(matrix):
@@ -30,9 +32,12 @@ def matrix_diagonal(matrix):
         i, diagonal_matrix = args
         return i + 1, diagonal_matrix.at[i].set(jnp.diag(matrix[i]))
 
-    _, diagonal_matrix = lax.while_loop(lambda args: args[0] < batch_size, loop_body, (0, diagonal_matrix))
+    _, diagonal_matrix = lax.while_loop(
+        lambda args: args[0] < batch_size, loop_body, (0, diagonal_matrix)
+    )
 
     return diagonal_matrix
+
 
 @jit
 def tensor_diagonal(tensor):
@@ -50,25 +55,31 @@ def tensor_diagonal(tensor):
     def loop_body_outer(args):
         i, diagonal_tensor = args
         diagonal_matrix = jnp.empty((dim_1, matrix_size, matrix_size))
-        _, _, diagonal_matrix  = lax.while_loop(lambda args: args[1] < dim_1, loop_body_inner, (i, 0, diagonal_matrix))
-        return i + 1, diagonal_tensor.at[i].set(diagonal_matrix) 
+        _, _, diagonal_matrix = lax.while_loop(
+            lambda args: args[1] < dim_1, loop_body_inner, (i, 0, diagonal_matrix)
+        )
+        return i + 1, diagonal_tensor.at[i].set(diagonal_matrix)
 
-    _, diagonal_tensor = lax.while_loop(lambda args: args[0] < dim_0, loop_body_outer, (0, diagonal_tensor))
+    _, diagonal_tensor = lax.while_loop(
+        lambda args: args[0] < dim_0, loop_body_outer, (0, diagonal_tensor)
+    )
 
     return diagonal_tensor
+
 
 @jit
 def matrix_transpose(batched_matrix):
     assert len(batched_matrix.shape) == 3
     return jnp.transpose(batched_matrix, axes=(0, 2, 1))
 
+
 @jit
 def tensor_transpose(batched_tensor):
     assert len(batched_tensor.shape) == 4
     return jnp.transpose(batched_tensor, axes=(0, 1, 3, 2))
 
-class PsuedoGPR():
 
+class PsuedoGPR:
     def __init__(self, x_initial, y_initial, kernel):
         self.D = gpx.Dataset(X=x_initial, y=y_initial)
         self.kernel = kernel
@@ -81,19 +92,21 @@ class PsuedoGPR():
     def y(self):
         return self.D.y
 
-class GPR():
 
-    def __init__(self, 
-            x_initial, 
-            y_initial, 
-            kernel=gpx.kernels.RBF(), 
-            mean=gpx.mean_functions.Zero(), 
-            obs_noise=1e-6, 
-            learning_rate=0.01, 
-            num_iters=100, 
-            batch_size=64,
-            **kw):
-            
+class GPR:
+    def __init__(
+        self,
+        x_initial,
+        y_initial,
+        kernel=gpx.kernels.RBF(),
+        mean=gpx.mean_functions.Zero(),
+        obs_noise=1e-6,
+        learning_rate=0.01,
+        num_iters=100,
+        batch_size=64,
+        **kw,
+    ):
+
         self.D = gpx.Dataset(X=x_initial, y=y_initial)
         self.noise = jnp.array(max(obs_noise, 1e-6))
         self.learning_rate = learning_rate
@@ -104,16 +117,16 @@ class GPR():
         self.steps = 0
 
     def optimize(self, key):
-        likelihood = _freeze_obs_noise(
-            gpx.likelihoods.Gaussian(obs_stddev=self.noise)
-        )
+        likelihood = _freeze_obs_noise(gpx.likelihoods.Gaussian(obs_stddev=self.noise))
 
         if self.posterior is not None:
             posterior = self.posterior.prior * likelihood
         else:
             posterior = self.prior * likelihood
 
-        negative_mll = jit(lambda model, data: -gpx.objectives.conjugate_mll(model, data))
+        negative_mll = jit(
+            lambda model, data: -gpx.objectives.conjugate_mll(model, data)
+        )
 
         opt_posterior, _ = gpx.fit(
             model=posterior,
@@ -166,9 +179,7 @@ class GPR():
             return self.posterior.prior.kernel.cross_covariance(X1, X2)
 
 
-class MGPR():
-
-
+class MGPR:
     def __init__(self, key, x_initial, y_initial, **gp_kwargs):
 
         assert x_initial.shape[0] == y_initial.shape[0]
@@ -229,7 +240,17 @@ class MGPR():
         # reshape mu
         mu = mu.reshape(1, -1)
         iK, beta = self.calculate_factorization()
-        return self._predict_at_noisy_input(mu, cov, self.centralized_input(mu), iK, beta, self.n_outs, self.n_ins, self.lengthscales, self.variance)
+        return self._predict_at_noisy_input(
+            mu,
+            cov,
+            self.centralized_input(mu),
+            iK,
+            beta,
+            self.n_outs,
+            self.n_ins,
+            self.lengthscales,
+            self.variance,
+        )
 
     @staticmethod
     @partial(jit, static_argnames=["n_outs"])
@@ -243,37 +264,44 @@ class MGPR():
 
     @staticmethod
     @partial(jit, static_argnames=["n_outs", "n_ins"])
-    def _predict_at_noisy_input(mu, cov, centralized_input, iK, beta, n_outs, n_ins, lengthscales, variance):
+    def _predict_at_noisy_input(
+        mu, cov, centralized_input, iK, beta, n_outs, n_ins, lengthscales, variance
+    ):
 
         # might need to double check the beta shape ?
         cov = jnp.tile(cov[None, None, :, :], (n_outs, n_outs, 1, 1))
         inp = jnp.tile(centralized_input[None, :, :], (n_outs, 1, 1))
-        
+
         # calculate the delta mean and input/output covariance
         # lengthscales need to have dim (n_outs, n_ins)
         # iL needs to have dim (n_outs, n_ins, n_ins)
-        iL = matrix_diagonal(1/lengthscales)
+        iL = matrix_diagonal(1 / lengthscales)
         iN = jnp.matmul(inp, iL)
 
         B = jnp.matmul(iL, cov[0, ...]) + jnp.eye(n_ins)
 
         t = matrix_transpose(jnp.linalg.solve(B, matrix_transpose(iN)))
-        
-        lb = jnp.exp(- jnp.sum(iN * t, -1)/2) * beta
+
+        lb = jnp.exp(-jnp.sum(iN * t, -1) / 2) * beta
 
         tiL = jnp.matmul(t, iL)
 
         c = variance / jnp.sqrt(jnp.linalg.det(B))
 
         delta = (jnp.sum(lb, -1) * c)[:, None]
-        cross_cov = jnp.matmul(matrix_transpose(tiL), lb[:, :, None])[..., 0] * c[:, None]
+        cross_cov = (
+            jnp.matmul(matrix_transpose(tiL), lb[:, :, None])[..., 0] * c[:, None]
+        )
 
         # calculate the predictive covariance
 
-        R = jnp.matmul(cov, tensor_diagonal( \
-            1/jnp.square(lengthscales[None, :, :]) + \
-            1/jnp.square(lengthscales[:, None, :]))) + \
-            jnp.eye(n_ins)
+        R = jnp.matmul(
+            cov,
+            tensor_diagonal(
+                1 / jnp.square(lengthscales[None, :, :])
+                + 1 / jnp.square(lengthscales[:, None, :])
+            ),
+        ) + jnp.eye(n_ins)
 
         X = inp[None, :, :, :] / jnp.square(lengthscales[:, None, None, :])
         X2 = -inp[:, None, :, :] / jnp.square(lengthscales[None, :, None, :])
@@ -281,24 +309,23 @@ class MGPR():
         Xs = jnp.sum(jnp.matmul(X, Q) * X, -1)
         X2s = jnp.sum(jnp.matmul(X2, Q) * X2, -1)
 
-        maha = -2 * jnp.matmul(jnp.matmul(X, Q), tensor_transpose(X2)) + \
-            Xs[:, :, :, None] + X2s[:, :, None, :]
+        maha = (
+            -2 * jnp.matmul(jnp.matmul(X, Q), tensor_transpose(X2))
+            + Xs[:, :, :, None]
+            + X2s[:, :, None, :]
+        )
 
-        k = jnp.log(variance)[:, None] -\
-            jnp.sum(jnp.square(iN), -1)/2
+        k = jnp.log(variance)[:, None] - jnp.sum(jnp.square(iN), -1) / 2
 
         L = jnp.exp(k[:, None, :, None] + k[None, :, None, :] + maha)
 
-        cov_delta = \
-            jnp.matmul(
-                jnp.matmul(
-                    jnp.tile(beta[:, None, None, :], [1, n_outs, 1, 1]), L
-                    ),
-                jnp.tile(beta[None, :, :, None], [n_outs, 1, 1, 1])
-                )[:, :, 0, 0]
+        cov_delta = jnp.matmul(
+            jnp.matmul(jnp.tile(beta[:, None, None, :], [1, n_outs, 1, 1]), L),
+            jnp.tile(beta[None, :, :, None], [n_outs, 1, 1, 1]),
+        )[:, :, 0, 0]
 
         diagL = jnp.transpose(jnp.diagonal(jnp.transpose(L), axis1=-2, axis2=-1))
-        
+
         cov_delta = cov_delta - jnp.diag(jnp.sum(jnp.multiply(iK, diagL), (1, 2)))
         cov_delta = cov_delta / jnp.sqrt(jnp.linalg.det(R))
         cov_delta = cov_delta + jnp.diag(variance)
@@ -353,4 +380,3 @@ class MGPR():
     @property
     def N(self):
         return self.X.shape[0]
-

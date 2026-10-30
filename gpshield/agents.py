@@ -8,30 +8,35 @@ import numpy as np
 from scipy.linalg import solve_continuous_are
 from scipy.linalg import inv
 
+
 @jit
 def matrix_transpose(batched_matrix):
     assert len(batched_matrix.shape) == 3
     return jnp.transpose(batched_matrix, axes=(0, 2, 1))
+
 
 @jit
 def squash_sin(mu, cov, action_limit):
     k = mu.shape[1]
     action_limits = jnp.ones((1, k)) * action_limit
 
-    squashed_mu  = action_limits * jnp.exp(- jnp.diag(cov) / 2) * jnp.sin(mu)
+    squashed_mu = action_limits * jnp.exp(-jnp.diag(cov) / 2) * jnp.sin(mu)
 
     lq = -(jnp.diag(cov)[:, None] + jnp.diag(cov)[None, :]) / 2
     q = jnp.exp(lq)
 
-    squashed_cov = (jnp.exp(lq + cov) - q) * jnp.cos(jnp.transpose(mu) - mu) \
-        - (jnp.exp(lq - cov) - q) * jnp.cos(jnp.transpose(mu) + mu)
+    squashed_cov = (jnp.exp(lq + cov) - q) * jnp.cos(jnp.transpose(mu) - mu) - (
+        jnp.exp(lq - cov) - q
+    ) * jnp.cos(jnp.transpose(mu) + mu)
     squashed_cov = action_limits * jnp.transpose(action_limits) * squashed_cov / 2
 
-    cross_cov = action_limits * jnp.diag((jnp.exp(-jnp.diag(cov) / 2) * jnp.cos(mu))[0, :])
+    cross_cov = action_limits * jnp.diag(
+        (jnp.exp(-jnp.diag(cov) / 2) * jnp.cos(mu))[0, :]
+    )
     return squashed_mu, squashed_cov, cross_cov
 
-class Agent(ABC):
 
+class Agent(ABC):
     def __init__(self):
         pass
 
@@ -43,15 +48,14 @@ class Agent(ABC):
     def policy(self):
         return lambda k, x: self.act(k, x)
 
-class JAXAgent(Agent):
 
+class JAXAgent(Agent):
     @property
     def policy(self):
         return lambda k, x: jax.device_get(self.act(k, x).block_until_ready())
 
 
 class LQR_Agent(JAXAgent):
-
     def __init__(self, A, B, Q, R, action_limit=1.0):
         super().__init__()
 
@@ -88,7 +92,7 @@ class LQR_Agent(JAXAgent):
     @jit
     def _act(K, obs, action_limit):
         cov = jnp.eye(K.shape[1]) * 1e-6
-        next_mu = - K @ obs
+        next_mu = -K @ obs
         next_mu = next_mu.reshape(1, -1)
         next_cov = (-K @ cov) @ -K.T
         next_mu, _, _ = squash_sin(next_mu, next_cov, action_limit)
@@ -105,8 +109,8 @@ class LQR_Agent(JAXAgent):
         cross_cov = cross_cov_1 @ cross_cov_2
         return jnp.squeeze(next_mu, axis=0), next_cov, cross_cov
 
-class Linear_Agent(JAXAgent):
 
+class Linear_Agent(JAXAgent):
     def __init__(self, key, input_dim, output_dim, action_limit=1.0, **kwargs):
         super().__init__()
         if "weights" in kwargs:
@@ -130,13 +134,19 @@ class Linear_Agent(JAXAgent):
         self.action_limit = action_limit
 
     def act(self, key, obs):
-        return self._act(self.weights, self.input_bias, self.output_bias, obs, self.action_limit)
+        return self._act(
+            self.weights, self.input_bias, self.output_bias, obs, self.action_limit
+        )
 
     def propagate(self, obs, cov):
-        return self._propagate(self.weights, self.input_bias, self.output_bias, obs, cov, self.action_limit)
+        return self._propagate(
+            self.weights, self.input_bias, self.output_bias, obs, cov, self.action_limit
+        )
 
     def act_dim(self, obs):
-        return self._act_dim(self.weights, self.input_bias, self.output_bias, obs, self.action_limit)
+        return self._act_dim(
+            self.weights, self.input_bias, self.output_bias, obs, self.action_limit
+        )
 
     @staticmethod
     @jit
@@ -147,14 +157,18 @@ class Linear_Agent(JAXAgent):
         next_cov = matrix_transpose(cov @ W.T) @ W.T
         k = next_mu.shape[1]
         action_limits = jnp.ones((1, k)) * action_limit
-        squashed_mu  = action_limits * jnp.exp(- jnp.diagonal(next_cov, axis1=1, axis2=2) / 2) * jnp.sin(next_mu)
+        squashed_mu = (
+            action_limits
+            * jnp.exp(-jnp.diagonal(next_cov, axis1=1, axis2=2) / 2)
+            * jnp.sin(next_mu)
+        )
         return squashed_mu
 
     @staticmethod
     @jit
     def _act(W, b_in, b_out, obs, action_limit):
         cov = jnp.eye(W.shape[1]) * 1e-6
-        next_mu = (jnp.dot(W, (obs-b_in)) + b_out).reshape(1, -1)
+        next_mu = (jnp.dot(W, (obs - b_in)) + b_out).reshape(1, -1)
         next_cov = jnp.dot(jnp.dot(W, cov), jnp.transpose(W))
         next_mu, _, _ = squash_sin(next_mu, next_cov, action_limit)
         return jnp.squeeze(next_mu, axis=0)
@@ -162,15 +176,15 @@ class Linear_Agent(JAXAgent):
     @staticmethod
     @jit
     def _propagate(W, b_in, b_out, obs, cov, action_limit):
-        next_mu = (jnp.dot(W, (obs-b_in)) + b_out).reshape(1, -1)
+        next_mu = (jnp.dot(W, (obs - b_in)) + b_out).reshape(1, -1)
         next_cov = jnp.dot(jnp.dot(W, cov), jnp.transpose(W))
         cross_cov_1 = jnp.transpose(W)
         next_mu, next_cov, cross_cov_2 = squash_sin(next_mu, next_cov, action_limit)
         cross_cov = jnp.matmul(cross_cov_1, cross_cov_2)
         return jnp.squeeze(next_mu, axis=0), next_cov, cross_cov
 
-class Random_Agent(JAXAgent):
 
+class Random_Agent(JAXAgent):
     def __init__(self, action_space, continuous=True):
         super().__init__()
         self.continuous = continuous
@@ -182,9 +196,11 @@ class Random_Agent(JAXAgent):
 
     def act(self, key, obs):
         if self.continuous:
-            return jr.uniform(key, minval=self.action_space.low, maxval=self.action_space.high, shape=self.action_space.shape)
+            return jr.uniform(
+                key,
+                minval=self.action_space.low,
+                maxval=self.action_space.high,
+                shape=self.action_space.shape,
+            )
         else:
             return jr.choice(key, self.n_actions).item()
-
-
-

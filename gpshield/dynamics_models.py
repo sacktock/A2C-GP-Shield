@@ -1,4 +1,3 @@
-
 from gpshield.gp import MGPR
 from gpshield.sgp import SMGPR
 
@@ -25,6 +24,7 @@ import time
 
 from jax.scipy.stats import chi2, norm
 
+
 def mardia_skewness_kurtosis(X, alpha=0.05):
     """
     X: jnp.ndarray of shape (M, D)
@@ -38,10 +38,10 @@ def mardia_skewness_kurtosis(X, alpha=0.05):
     mean = jnp.mean(X, axis=0)
     X_centered = X - mean
     cov = jnp.cov(X_centered, rowvar=False)
-    
+
     # Inverse covariance matrix
     cov_inv = jnp.linalg.inv(cov)
-    
+
     # Mahalanobis distances
     delta = X_centered @ cov_inv @ X_centered.T
 
@@ -85,19 +85,25 @@ def mardia_skewness_kurtosis(X, alpha=0.05):
 @jit
 def check_ellipsoid_within_limits(loc, cov, limits, sigma_coefficient):
     extent = sigma_coefficient * jnp.sqrt(jnp.diag(cov))
-    return jnp.all((loc - extent >= limits[:, 0]) * (loc + extent <= limits[:, 1])).astype(jnp.float32)  
+    return jnp.all(
+        (loc - extent >= limits[:, 0]) * (loc + extent <= limits[:, 1])
+    ).astype(jnp.float32)
 
-    '''for j in range(d):
+    """for j in range(d):
         extent = sigma_coefficient * jnp.sqrt(cov[j, j])
         if not ((loc[j] - extent >= limits[j, 0]) and (loc[j] + extent <= limits[j, 1])):
             return jnp.array(0.0) 
 
-    return jnp.array(1.0)'''
+    return jnp.array(1.0)"""
+
 
 @jit
 def check_ellipsoid_outside_limits(loc, cov, limits, sigma_coefficient):
     extent = sigma_coefficient * jnp.sqrt(jnp.diag(cov))
-    return jnp.any((loc + extent <= limits[:, 0]) + (loc - extent >= limits[:, 1])).astype(jnp.float32)  
+    return jnp.any(
+        (loc + extent <= limits[:, 0]) + (loc - extent >= limits[:, 1])
+    ).astype(jnp.float32)
+
 
 @jit
 def check_ellipsoids_within_limits(means, covs, limits, sigma_coef=1.96, axes=[0, 2]):
@@ -113,11 +119,16 @@ def check_ellipsoids_within_limits(means, covs, limits, sigma_coef=1.96, axes=[0
 
     def loop_body(args):
         i, within_limits = args
-        return i+1, within_limits.at[i].set(check_ellipsoid_within_limits(means[i], covs[i], limits, sigma_coef))
+        return i + 1, within_limits.at[i].set(
+            check_ellipsoid_within_limits(means[i], covs[i], limits, sigma_coef)
+        )
 
-    _, within_limits = lax.while_loop(lambda args: args[0] < t, loop_body, (0, jnp.ones(t)))
+    _, within_limits = lax.while_loop(
+        lambda args: args[0] < t, loop_body, (0, jnp.ones(t))
+    )
 
     return within_limits
+
 
 @jit
 def check_ellipsoids_outside_limits(means, covs, limits, sigma_coef=1.96, axes=[0, 2]):
@@ -133,23 +144,35 @@ def check_ellipsoids_outside_limits(means, covs, limits, sigma_coef=1.96, axes=[
 
     def loop_body(args):
         i, outside_limits = args
-        return i+1, outside_limits.at[i].set(check_ellipsoid_outside_limits(means[i], covs[i], limits, sigma_coef))
+        return i + 1, outside_limits.at[i].set(
+            check_ellipsoid_outside_limits(means[i], covs[i], limits, sigma_coef)
+        )
 
-    _, outside_limits = lax.while_loop(lambda args: args[0] < t, loop_body, (0, jnp.ones(t)))
+    _, outside_limits = lax.while_loop(
+        lambda args: args[0] < t, loop_body, (0, jnp.ones(t))
+    )
 
     return outside_limits
 
+
 @jit
 def check_points_is_inside_hull(A, b, X, axes):
-    return jnp.all((A @ X[:, axes].T) <= -b.reshape(-1, 1),axis=0).astype(jnp.float32)
+    return jnp.all((A @ X[:, axes].T) <= -b.reshape(-1, 1), axis=0).astype(jnp.float32)
+
 
 @jit
 def check_points_within_limits(limits, X, axes):
-    return jnp.all((X[:, axes] >= limits[:, 0]) * (X[:, axes] <= limits[:, 1]), axis=1).astype(jnp.float32)
+    return jnp.all(
+        (X[:, axes] >= limits[:, 0]) * (X[:, axes] <= limits[:, 1]), axis=1
+    ).astype(jnp.float32)
+
 
 @jit
 def check_points_outside_limits(limits, X, axes):
-    return jnp.all((X[:, axes] <= limits[:, 0]) + (X[:, axes] >= limits[:, 1]), axis=1).astype(jnp.float32)
+    return jnp.all(
+        (X[:, axes] <= limits[:, 0]) + (X[:, axes] >= limits[:, 1]), axis=1
+    ).astype(jnp.float32)
+
 
 @partial(jit, static_argnames=["obstacle"])
 def check_all_points(X, safety_constraint, safety_axes, obstacle=False):
@@ -157,42 +180,54 @@ def check_all_points(X, safety_constraint, safety_axes, obstacle=False):
     M, N = X.shape[0], X.shape[1]
     safety_constraint = jnp.array(safety_constraint)
     safety_axes = jnp.array(safety_axes)
-    
+
     assert safety_constraint.shape[0] == safety_axes.shape[0]
 
     if obstacle:
         check_points = check_points_outside_limits
     else:
         check_points = check_points_within_limits
-    
+
     def loop_body(args):
         i, counts = args
-        return i+1, counts.at[:, i].set(1.0 - check_points(safety_constraint, X[:,i,:], safety_axes).astype(jnp.float32))
-    
-    _, counts = lax.while_loop(lambda args: args[0] < N, loop_body, (0, jnp.zeros((M, N), dtype=jnp.float32)))
+        return i + 1, counts.at[:, i].set(
+            1.0
+            - check_points(safety_constraint, X[:, i, :], safety_axes).astype(
+                jnp.float32
+            )
+        )
+
+    _, counts = lax.while_loop(
+        lambda args: args[0] < N, loop_body, (0, jnp.zeros((M, N), dtype=jnp.float32))
+    )
 
     return counts
 
+
 def is_inside(hull, x_new, axes):
-    A = hull.equations[:, :-1] 
+    A = hull.equations[:, :-1]
     b = hull.equations[:, -1]
     return np.all(A @ x_new[axes] <= -b)
 
+
 def rejection_sample_convex_hull(hull, min_bounds, max_bounds, num_samples):
-    """ Perform rejection sampling within the convex hull. """
+    """Perform rejection sampling within the convex hull."""
     assert min_bounds.shape == max_bounds.shape
     dim = len(min_bounds)
     samples = []
-    
+
     while len(samples) < num_samples:
         # Sample uniformly within the bounding box
-        sample = np.random.uniform(low=min_bounds, high=max_bounds, size=max_bounds.shape)
-        
+        sample = np.random.uniform(
+            low=min_bounds, high=max_bounds, size=max_bounds.shape
+        )
+
         # Check if the sample is inside the convex hull
-        if is_inside(hull, sample, np.arange(len(sample),like=sample)):
+        if is_inside(hull, sample, np.arange(len(sample), like=sample)):
             samples.append(sample)
-    
+
     return np.array(samples)
+
 
 '''def is_ellipsoid_fully_contained(loc, cov, hull, sigma_coef=1.96):
     """
@@ -238,6 +273,7 @@ def rejection_sample_convex_hull(hull, min_bounds, max_bounds, num_samples):
 
     return True'''
 
+
 def is_ellipsoid_fully_outside(loc, cov, hull, sigma_coef=1.96, tol=1e-12, strict=True):
     """
     Return True if the sigma_coef-ellipsoid centered at `loc` with covariance `cov`
@@ -261,7 +297,8 @@ def is_ellipsoid_fully_outside(loc, cov, hull, sigma_coef=1.96, tol=1e-12, stric
             if min_lhs >= -tol:
                 return True
 
-    return False 
+    return False
+
 
 def is_ellipsoid_fully_inside(loc, cov, hull, sigma_coef=1.96, tol=1e-12, strict=True):
     """
@@ -286,17 +323,32 @@ def is_ellipsoid_fully_inside(loc, cov, hull, sigma_coef=1.96, tol=1e-12, strict
     return True
 
 
-class GP_Dynamics():
-
-    def __init__(self, key, env, s_initial, a_initial, ns_initial, sparse=False, obs_noise=1e-6, **gp_kwargs):
+class GP_Dynamics:
+    def __init__(
+        self,
+        key,
+        env,
+        s_initial,
+        a_initial,
+        ns_initial,
+        sparse=False,
+        obs_noise=1e-6,
+        **gp_kwargs,
+    ):
 
         self.observation_space = env.observation_space
         self.action_space = env.action_space
 
-        assert isinstance(self.action_space, gymnasium.spaces.Discrete) or isinstance(self.action_space, gymnasium.spaces.Box)
+        assert isinstance(self.action_space, gymnasium.spaces.Discrete) or isinstance(
+            self.action_space, gymnasium.spaces.Box
+        )
         assert isinstance(self.observation_space, gymnasium.spaces.Box)
 
-        s_initial, a_initial, ns_initial = jnp.array(s_initial), jnp.array(a_initial), jnp.array(ns_initial)
+        s_initial, a_initial, ns_initial = (
+            jnp.array(s_initial),
+            jnp.array(a_initial),
+            jnp.array(ns_initial),
+        )
 
         self.sparse = sparse
 
@@ -312,12 +364,30 @@ class GP_Dynamics():
                 y_initial = ns_initial[a_initial == i] - x_initial
                 key, subkey = jr.split(key)
                 if self.sparse:
-                    assert 'num_inducing_inputs' in gp_kwargs
-                    num_inducing_inputs = gp_kwargs['num_inducing_inputs']
-                    z_initial = np.array([self.observation_space.sample() for _ in range(num_inducing_inputs)])
-                    mgpr_model = SMGPR(subkey, x_initial, y_initial, z_initial=z_initial, obs_noise=self.obs_noise, **gp_kwargs)
+                    assert "num_inducing_inputs" in gp_kwargs
+                    num_inducing_inputs = gp_kwargs["num_inducing_inputs"]
+                    z_initial = np.array(
+                        [
+                            self.observation_space.sample()
+                            for _ in range(num_inducing_inputs)
+                        ]
+                    )
+                    mgpr_model = SMGPR(
+                        subkey,
+                        x_initial,
+                        y_initial,
+                        z_initial=z_initial,
+                        obs_noise=self.obs_noise,
+                        **gp_kwargs,
+                    )
                 else:
-                    mgpr_model = MGPR(subkey, x_initial, y_initial, obs_noise=self.obs_noise, **gp_kwargs)
+                    mgpr_model = MGPR(
+                        subkey,
+                        x_initial,
+                        y_initial,
+                        obs_noise=self.obs_noise,
+                        **gp_kwargs,
+                    )
                 self.mgpr_models.append(mgpr_model)
 
         if isinstance(self.action_space, gymnasium.spaces.Box):
@@ -325,12 +395,31 @@ class GP_Dynamics():
             # model deltas
             y_initial = ns_initial - s_initial
             if self.sparse:
-                assert 'num_inducing_inputs' in gp_kwargs
-                num_inducing_inputs = gp_kwargs['num_inducing_inputs']
-                z_initial = np.array([np.concatenate([self.observation_space.sample(), self.action_space.sample()]) for _ in range(num_inducing_inputs)])
-                mgpr_model = SMGPR(key, x_initial, y_initial, z_initial=z_initial, obs_noise=self.obs_noise, **gp_kwargs)
+                assert "num_inducing_inputs" in gp_kwargs
+                num_inducing_inputs = gp_kwargs["num_inducing_inputs"]
+                z_initial = np.array(
+                    [
+                        np.concatenate(
+                            [
+                                self.observation_space.sample(),
+                                self.action_space.sample(),
+                            ]
+                        )
+                        for _ in range(num_inducing_inputs)
+                    ]
+                )
+                mgpr_model = SMGPR(
+                    key,
+                    x_initial,
+                    y_initial,
+                    z_initial=z_initial,
+                    obs_noise=self.obs_noise,
+                    **gp_kwargs,
+                )
             else:
-                mgpr_model = MGPR(key, x_initial, y_initial, obs_noise=self.obs_noise, **gp_kwargs)
+                mgpr_model = MGPR(
+                    key, x_initial, y_initial, obs_noise=self.obs_noise, **gp_kwargs
+                )
             self.mgpr_models.append(mgpr_model)
 
     def add_experience(self, s_new, a_new, ns_new):
@@ -367,15 +456,15 @@ class GP_Dynamics():
             # model deltas
             y_new = ns_new - s_new
             self.mgpr_models[0].set_XY(x_new, y_new)
-                
+
     def optimize(self, key):
         losses = []
         for mgpr_model in self.mgpr_models:
             key, subkey = jr.split(key)
             loss = mgpr_model.optimize(subkey)
             losses.append(loss)
-            
-        return {'gp_loss': np.mean(losses)}
+
+        return {"gp_loss": np.mean(losses)}
 
     def predict_delta_at_point(self, state, action):
         if isinstance(self.action_space, gymnasium.spaces.Discrete):
@@ -404,27 +493,33 @@ class GP_Dynamics():
         return mu + delta
 
     def sample_traj(self, key, state, agent, N, M):
-        mus = jnp.empty((M, N+1,) + state.shape)
+        mus = jnp.empty(
+            (
+                M,
+                N + 1,
+            )
+            + state.shape
+        )
         mus = mus.at[:, 0, :].set(jnp.tile(state.reshape(1, -1), (M, 1)))
         for i in range(0, M):
             mu = state
             for j in range(0, N):
                 key, subkey = jr.split(key)
                 mu = self.sample_trans(subkey, mu, agent)
-                mus = mus.at[i, j+1].set(mu)
+                mus = mus.at[i, j + 1].set(mu)
         return mus
 
     def predict_naive(self, key, state, agent, N):
         mu = state
-        mus = jnp.empty((N+1,) + state.shape)
+        mus = jnp.empty((N + 1,) + state.shape)
         mus = mus.at[0].set(state)
-        covs = jnp.empty((N+1,) + (state.shape[0], state.shape[0]))
-        covs = covs.at[0].set(jnp.eye(state.shape[0])*self.obs_noise)
+        covs = jnp.empty((N + 1,) + (state.shape[0], state.shape[0]))
+        covs = covs.at[0].set(jnp.eye(state.shape[0]) * self.obs_noise)
         for i in range(0, N):
             key, subkey = jr.split(key)
             mu, cov = self.propagate_naive(subkey, mu, agent)
-            mus = mus.at[i+1].set(mu)
-            covs = covs.at[i+1].set(cov)
+            mus = mus.at[i + 1].set(mu)
+            covs = covs.at[i + 1].set(cov)
         return mus, covs
 
     def propagate_naive(self, key, state, agent):
@@ -439,15 +534,15 @@ class GP_Dynamics():
             assert NotImplementedError
         if isinstance(self.action_space, gymnasium.spaces.Box):
             assert len(self.mgpr_models) == 1
-            mus = jnp.empty((N+1,) + mu.shape)
-            covs = jnp.empty((N+1,) + cov.shape)
+            mus = jnp.empty((N + 1,) + mu.shape)
+            covs = jnp.empty((N + 1,) + cov.shape)
             mus = mus.at[0].set(mu)
             covs = covs.at[0].set(cov)
 
             for i in range(0, N):
                 mu, cov = self.propagate(mu, cov, agent)
-                mus = mus.at[i+1].set(mu)
-                covs = covs.at[i+1].set(cov)
+                mus = mus.at[i + 1].set(mu)
+                covs = covs.at[i + 1].set(cov)
 
             return mus, covs
 
@@ -458,13 +553,19 @@ class GP_Dynamics():
             mu_act, cov_act, cross_cov_act = agent.propagate(mu, cov)
             x = jnp.concatenate([mu, mu_act], axis=0)
             cov_1 = jnp.concatenate([cov, jnp.matmul(cov, cross_cov_act)], axis=1)
-            cov_2 = jnp.concatenate([jnp.transpose(jnp.matmul(cov, cross_cov_act)), cov_act], axis=1)
-            cov_x = jnp.concatenate([cov_1, cov_2], axis=0) 
+            cov_2 = jnp.concatenate(
+                [jnp.transpose(jnp.matmul(cov, cross_cov_act)), cov_act], axis=1
+            )
+            cov_x = jnp.concatenate([cov_1, cov_2], axis=0)
             # expecting output shapes delta: (n_outs,), cov_delta: (n_outs, n_outs), cov_delta: (n_ins, n_outs)
-            delta, cov_delta, cross_cov_delta = self.mgpr_models[0].predict_at_noisy_input(x, cov_x)
+            delta, cov_delta, cross_cov_delta = self.mgpr_models[
+                0
+            ].predict_at_noisy_input(x, cov_x)
 
             mu = mu + delta
-            cov = self._compute_full_covariance(cov, cov_delta, cross_cov_delta, cov_1, self.jitter)
+            cov = self._compute_full_covariance(
+                cov, cov_delta, cross_cov_delta, cov_1, self.jitter
+            )
 
             return mu, cov
 
@@ -481,14 +582,30 @@ class GP_Dynamics():
             assert NotImplementedError
         if isinstance(self.action_space, gymnasium.spaces.Box):
             assert len(self.mgpr_models) == 1
-            transition_fn = self.mgpr_models[0].sample_approx(key, num_samples=num_samples, jitted=jitted)
-        return transition_fn 
+            transition_fn = self.mgpr_models[0].sample_approx(
+                key, num_samples=num_samples, jitted=jitted
+            )
+        return transition_fn
 
-    def shield(self, key, state, agent, safe_agent, N, safety_constraints, safety_axes, stable_set, stable_axes, sigma_coef=2.58, method="gaussian_approx", num_samples=10):
+    def shield(
+        self,
+        key,
+        state,
+        agent,
+        safe_agent,
+        N,
+        safety_constraints,
+        safety_axes,
+        stable_set,
+        stable_axes,
+        sigma_coef=2.58,
+        method="gaussian_approx",
+        num_samples=10,
+    ):
         if method == "gaussian_approx":
-            #mu, cov = self.propagate(state, jnp.eye(state.shape[0]) * self.obs_noise, agent)
+            # mu, cov = self.propagate(state, jnp.eye(state.shape[0]) * self.obs_noise, agent)
             key, subkey = jr.split(key)
-            #mu, cov = self.propagate_naive(subkey, state, agent)
+            # mu, cov = self.propagate_naive(subkey, state, agent)
             mu = state
             action = agent.act(subkey, state)
             delta, cov = self.predict_delta_at_point(mu, action)
@@ -501,48 +618,100 @@ class GP_Dynamics():
             constraint_satisfaction = True
 
             # check constraint satisfaction for the safety constraints
-            if 'obstacles' in safety_constraints.keys():
-                for constraint in safety_constraints['obstacles']:
+            if "obstacles" in safety_constraints.keys():
+                for constraint in safety_constraints["obstacles"]:
                     if isinstance(constraint, np.ndarray):
                         assert constraint.shape == (safety_axes.shape[0], 2)
-                        outside_safety_constraint = check_ellipsoids_outside_limits(mus, covs, constraint, axes=safety_axes, sigma_coef=sigma_coef)
+                        outside_safety_constraint = check_ellipsoids_outside_limits(
+                            mus,
+                            covs,
+                            constraint,
+                            axes=safety_axes,
+                            sigma_coef=sigma_coef,
+                        )
                     elif isinstance(constraint, ConvexHull):
-                        outside_safety_constraint = np.array([is_ellipsoid_fully_outside(mus[i, stable_axes], covs[i, stable_axes][:, stable_axes], stable_set, sigma_coef=sigma_coef) for i in range(N+1)],dtype=float64)
+                        outside_safety_constraint = np.array(
+                            [
+                                is_ellipsoid_fully_outside(
+                                    mus[i, stable_axes],
+                                    covs[i, stable_axes][:, stable_axes],
+                                    stable_set,
+                                    sigma_coef=sigma_coef,
+                                )
+                                for i in range(N + 1)
+                            ],
+                            dtype=float64,
+                        )
                     else:
                         raise NotImplementedError
-                    constraint_satisfaction = constraint_satisfaction and jnp.all(outside_safety_constraint == 1.0).item()
-            if 'boundaries' in safety_constraints.keys():
-                for constraint in safety_constraints['boundaries']:
+                    constraint_satisfaction = (
+                        constraint_satisfaction
+                        and jnp.all(outside_safety_constraint == 1.0).item()
+                    )
+            if "boundaries" in safety_constraints.keys():
+                for constraint in safety_constraints["boundaries"]:
                     if isinstance(constraint, np.ndarray):
                         assert constraint.shape == (safety_axes.shape[0], 2)
-                        within_safety_constraint = check_ellipsoids_within_limits(mus, covs, constraint, axes=safety_axes, sigma_coef=sigma_coef)
+                        within_safety_constraint = check_ellipsoids_within_limits(
+                            mus,
+                            covs,
+                            constraint,
+                            axes=safety_axes,
+                            sigma_coef=sigma_coef,
+                        )
                     elif isinstance(constraint, ConvexHull):
-                        within_safety_constraint = np.array([is_ellipsoid_fully_inside(mus[i, stable_axes], covs[i, stable_axes][:, stable_axes], stable_set, sigma_coef=sigma_coef) for i in range(N+1)],dtype=float64)
+                        within_safety_constraint = np.array(
+                            [
+                                is_ellipsoid_fully_inside(
+                                    mus[i, stable_axes],
+                                    covs[i, stable_axes][:, stable_axes],
+                                    stable_set,
+                                    sigma_coef=sigma_coef,
+                                )
+                                for i in range(N + 1)
+                            ],
+                            dtype=float64,
+                        )
                     else:
                         raise NotImplementedError
-                    constraint_satisfaction = constraint_satisfaction and jnp.all(within_safety_constraint == 1.0).item()
+                    constraint_satisfaction = (
+                        constraint_satisfaction
+                        and jnp.all(within_safety_constraint == 1.0).item()
+                    )
 
             # check final ellipsoid lies in the control invariant
             if isinstance(stable_set, np.ndarray):
-                assert stable_set.shape == (stable_axes.shape[0],2)
+                assert stable_set.shape == (stable_axes.shape[0], 2)
                 stable_axes = jnp.array(stable_axes)
                 stable_set = jnp.array(stable_set)
                 loc = mus[-1, stable_axes]
                 cov = covs[-1, stable_axes][:, stable_axes]
-                within_stable_set = (check_ellipsoid_within_limits(loc, cov, stable_set, sigma_coef).item() == 1.0)
+                within_stable_set = (
+                    check_ellipsoid_within_limits(
+                        loc, cov, stable_set, sigma_coef
+                    ).item()
+                    == 1.0
+                )
             elif isinstance(stable_set, ConvexHull):
-                within_stable_set = is_ellipsoid_fully_inside(mus[-1, stable_axes], covs[-1, stable_axes][:, stable_axes], stable_set, sigma_coef=sigma_coef)
+                within_stable_set = is_ellipsoid_fully_inside(
+                    mus[-1, stable_axes],
+                    covs[-1, stable_axes][:, stable_axes],
+                    stable_set,
+                    sigma_coef=sigma_coef,
+                )
             else:
-                raise TypeError(f"Expected a numpy.ndarray or scipy.spatial.ConvexHull, but got {type(stable_set)} instead.")
+                raise TypeError(
+                    f"Expected a numpy.ndarray or scipy.spatial.ConvexHull, but got {type(stable_set)} instead."
+                )
 
             override = (not constraint_satisfaction) or (not within_stable_set)
 
-            '''if override:
+            """if override:
                 outfile = f"shield_ellipses_override_{t}.pdf"
             else:
                 outfile = f"shield_ellipses_{t}.pdf"
                 
-            plot_ellipses_and_hull(mus, covs, stable_set, axes=stable_axes, x_limits=[-1.2, 0.6], y_limits=[-0.07, 0.07], fit_to_limits=True, x_name="car pos", y_name="car vel", sigma_coef=sigma_coef, outfile=outfile)'''
+            plot_ellipses_and_hull(mus, covs, stable_set, axes=stable_axes, x_limits=[-1.2, 0.6], y_limits=[-0.07, 0.07], fit_to_limits=True, x_name="car pos", y_name="car vel", sigma_coef=sigma_coef, outfile=outfile)"""
 
             if override:
                 return safe_agent.policy(None, state), True
@@ -550,7 +719,13 @@ class GP_Dynamics():
                 return action, False
         elif method == "posterior_sample_approx":
             M = num_samples
-            mus = jnp.empty((M, N+1,) + state.shape)
+            mus = jnp.empty(
+                (
+                    M,
+                    N + 1,
+                )
+                + state.shape
+            )
 
             epsilon_t = 0.995
 
@@ -574,28 +749,36 @@ class GP_Dynamics():
                 x = jnp.concatenate([mu, act], axis=-1)
                 delta = jnp.squeeze(transition_fn(x))[jnp.arange(M), jnp.arange(M), :]
                 mu = mu + delta
-                mus = mus.at[:, j+1].set(mu)
+                mus = mus.at[:, j + 1].set(mu)
 
             safe_counts = np.ones_like(mus)
-            
-            if 'obstacles' in safety_constraints.keys():
-                for constraint in safety_constraints['obstacles']:
+
+            if "obstacles" in safety_constraints.keys():
+                for constraint in safety_constraints["obstacles"]:
                     if isinstance(constraint, np.ndarray):
-                        safe_counts *= np.asarray(check_all_points(mus, constraint, safety_axes, obstacle=True))
+                        safe_counts *= np.asarray(
+                            check_all_points(
+                                mus, constraint, safety_axes, obstacle=True
+                            )
+                        )
                     else:
                         raise NotImplementedError
                     # sampling based approximation for convex hull checks is not currently implemented
-            if 'boundaries' in safety_constraints.keys():
-                for constraint in safety_constraints['boundaries']:
+            if "boundaries" in safety_constraints.keys():
+                for constraint in safety_constraints["boundaries"]:
                     if isinstance(constraint, np.ndarray):
-                        safe_counts *= np.asarray(check_all_points(mus, constraint, safety_axes, obstacle=False))
+                        safe_counts *= np.asarray(
+                            check_all_points(
+                                mus, constraint, safety_axes, obstacle=False
+                            )
+                        )
                     else:
                         raise NotImplementedError
                     # sampling based approximation for convex hull checks is not currently implemented
 
             safe_probs = np.mean(safe_counts, axis=0)
 
-            if isinstance(stable_set, ConvexHull):    
+            if isinstance(stable_set, ConvexHull):
                 A = stable_set.equations[:, :-1]
                 b = stable_set.equations[:, -1]
                 stable_axes = jnp.array(stable_axes)
@@ -603,15 +786,23 @@ class GP_Dynamics():
                 b = jnp.array(b)
                 assert A.shape[0] == b.shape[0]
                 assert A.shape[1] == stable_axes.shape[0]
-                stable_probs = jnp.mean(check_points_is_inside_hull(A, b, mus[:, -1, :], stable_axes))
+                stable_probs = jnp.mean(
+                    check_points_is_inside_hull(A, b, mus[:, -1, :], stable_axes)
+                )
             else:
-                assert stable_set.shape == (stable_axes.shape[0],2)
+                assert stable_set.shape == (stable_axes.shape[0], 2)
                 stable_limits = jnp.array(stable_set)
                 stable_axes = jnp.array(stable_axes)
                 assert stable_limits.shape[0] == stable_axes.shape[0]
-                stable_probs = jnp.mean(check_points_within_limits(stable_limits, mus[:, -1, :], stable_axes).astype(jnp.float32))
+                stable_probs = jnp.mean(
+                    check_points_within_limits(
+                        stable_limits, mus[:, -1, :], stable_axes
+                    ).astype(jnp.float32)
+                )
 
-            override = (stable_probs > 1.0 - epsilon_t) and not jnp.all(safe_probs <= 1.0 - epsilon_t)
+            override = (stable_probs > 1.0 - epsilon_t) and not jnp.all(
+                safe_probs <= 1.0 - epsilon_t
+            )
 
             if override:
                 return safe_agent.policy(None, state), True
@@ -620,7 +811,13 @@ class GP_Dynamics():
 
         elif method == "posterior_sample_approx_skew_and_kurt":
             M = num_samples
-            mus = jnp.empty((M, N+1,) + state.shape)
+            mus = jnp.empty(
+                (
+                    M,
+                    N + 1,
+                )
+                + state.shape
+            )
 
             epsilon_t = 0.995
 
@@ -644,28 +841,26 @@ class GP_Dynamics():
                 x = jnp.concatenate([mu, act], axis=-1)
                 delta = jnp.squeeze(transition_fn(x))[jnp.arange(M), jnp.arange(M), :]
                 mu = mu + delta
-                mus = mus.at[:, j+1].set(mu)
+                mus = mus.at[:, j + 1].set(mu)
 
-            for j in range(N+1):
+            for j in range(N + 1):
                 X = mus[:, j, :]
                 results = mardia_skewness_kurtosis(X)
 
-                print("$t={}$ & {} & {:.4f} & {:.4f} & {} & {:.4f} & {:.4f} & {} \\\\".format(
-                    j, 'Pass' if results['overall_pass'] else 'Fail', results['mardia_skewness'], results['skew_p_value'], 'Pass' if results['skew_pass'] else 'Fail', results['mardia_kurtosis'], results['kurt_p_value'], 'Pass' if results['kurt_pass'] else 'Fail'
-                ))
+                print(
+                    "$t={}$ & {} & {:.4f} & {:.4f} & {} & {:.4f} & {:.4f} & {} \\\\".format(
+                        j,
+                        "Pass" if results["overall_pass"] else "Fail",
+                        results["mardia_skewness"],
+                        results["skew_p_value"],
+                        "Pass" if results["skew_pass"] else "Fail",
+                        results["mardia_kurtosis"],
+                        results["kurt_p_value"],
+                        "Pass" if results["kurt_pass"] else "Fail",
+                    )
+                )
 
             return action, False
 
         else:
             raise NotImplementedError
-
-
-                
-    
-
-
-
-    
-
-
-

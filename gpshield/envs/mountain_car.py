@@ -1,4 +1,4 @@
-from gpshield.envs.base import BaseEnv 
+from gpshield.envs.base import BaseEnv
 import numpy as np
 import math
 import gymnasium
@@ -7,7 +7,6 @@ from scipy.spatial import ConvexHull
 
 
 class ContinuousMountainCar(BaseEnv):
-
     metadata = {
         "render_modes": ["rgb_array"],
         "render_fps": 30,
@@ -27,8 +26,8 @@ class ContinuousMountainCar(BaseEnv):
         )
         self.power = 0.0015
         self.gravity = 0.0025
-        
-        self.dt = 1.
+
+        self.dt = 1.0
 
         min_action = np.array([-1.0])
         max_action = np.array([1.0])
@@ -38,7 +37,7 @@ class ContinuousMountainCar(BaseEnv):
                 self.max_position,
                 self.max_speed,
             ],
-            dtype=np.float64
+            dtype=np.float64,
         )
 
         low = np.array(
@@ -46,10 +45,20 @@ class ContinuousMountainCar(BaseEnv):
                 self.min_position,
                 -self.max_speed,
             ],
-            dtype=np.float64
+            dtype=np.float64,
         )
 
-        super().__init__((2,), (1,), low, high, min_action, max_action, max_episode_steps=max_episode_steps, continuous=True, **kwargs)
+        super().__init__(
+            (2,),
+            (1,),
+            low,
+            high,
+            min_action,
+            max_action,
+            max_episode_steps=max_episode_steps,
+            continuous=True,
+            **kwargs,
+        )
 
         # rendering stuff
         self.render_mode = "rgb_array"
@@ -62,7 +71,9 @@ class ContinuousMountainCar(BaseEnv):
     def _step(self, state, action):
 
         state = state.copy()
-        velocity = state[1] + self.power * action[0] - self.gravity * np.cos(3 * state[0])
+        velocity = (
+            state[1] + self.power * action[0] - self.gravity * np.cos(3 * state[0])
+        )
         if velocity > self.max_speed:
             velocity = self.max_speed
         if velocity < -self.max_speed:
@@ -190,35 +201,48 @@ class ContinuousMountainCar(BaseEnv):
             pygame.quit()
             self.isopen = False
 
-
     def _height(self, xs):
         return np.sin(3 * xs) * 0.45 + 0.55
 
     @property
     def _init_state_function(self):
-        return lambda: np.array([self.np_random.uniform(low=-0.6, high=-0.4), 0.])
+        return lambda: np.array([self.np_random.uniform(low=-0.6, high=-0.4), 0.0])
 
     @property
     def _reward_function(self):
         if self.reward_id == "rew_v1":
-            return lambda s, a, ns: 100. if self._done(ns) else -0.1 * np.linalg.norm(a) ** 2
+            return lambda s, a, ns: (
+                100.0 if self._done(ns) else -0.1 * np.linalg.norm(a) ** 2
+            )
         elif self.reward_id == "rew_v2":
+
             def shaped_reward(s, a, ns):
                 if self._done(ns):
-                    return 100.
+                    return 100.0
                 else:
-                    s_potential = self._height(s[0]) / 0.9 + (s[0] + (np.pi/6)) * s[1] / 0.07
-                    ns_potential = self._height(ns[0]) / 0.9 + (ns[0] + (np.pi/6)) * ns[1] / 0.07
-                    #acc_bonus = np.abs(0.99 * ns[1] - s[1])/0.004
-                    return -0.1 * np.linalg.norm(a) ** 2 + 0.99 * ns_potential - s_potential #+ acc_bonus
+                    s_potential = (
+                        self._height(s[0]) / 0.9 + (s[0] + (np.pi / 6)) * s[1] / 0.07
+                    )
+                    ns_potential = (
+                        self._height(ns[0]) / 0.9 + (ns[0] + (np.pi / 6)) * ns[1] / 0.07
+                    )
+                    # acc_bonus = np.abs(0.99 * ns[1] - s[1])/0.004
+                    return (
+                        -0.1 * np.linalg.norm(a) ** 2
+                        + 0.99 * ns_potential
+                        - s_potential
+                    )  # + acc_bonus
+
             return shaped_reward
         elif self.reward_id == "rew_v3":
+
             def shaped_reward(s, a, ns):
                 if self._done(ns):
-                    return 100.
+                    return 100.0
                 else:
                     cost = 0.1 if np.sign(s[1]) == np.sign(a[0]) else 1.0
                     return -0.1 * np.linalg.norm(a) ** 2 - 0.1 * cost
+
             return shaped_reward
         else:
             raise NotImplementedError
@@ -230,9 +254,7 @@ class ContinuousMountainCar(BaseEnv):
     @property
     def _safety_constraints(self):
         return {
-            'boundaries': [
-                np.array([[self.min_position, np.inf]])
-            ],
+            "boundaries": [np.array([[self.min_position, np.inf]])],
         }
 
     @property
@@ -245,27 +267,28 @@ class ContinuousMountainCar(BaseEnv):
 
     @property
     def _stable_axes(self):
-        return np.array([0,1])
+        return np.array([0, 1])
 
     @property
     def _backup(self):
-        return Linear_Agent(None, 
-                self.observation_space.shape[0], 
-                self.action_space.shape[0], 
-                action_limit=1.0, 
-                #weights=[[-0.0551, -11.4728]],
-                weights=[[-0.7625, -34.5971]],
-                input_bias=[-np.pi/6, 0.0],
-            )
+        return Linear_Agent(
+            None,
+            self.observation_space.shape[0],
+            self.action_space.shape[0],
+            action_limit=1.0,
+            # weights=[[-0.0551, -11.4728]],
+            weights=[[-0.7625, -34.5971]],
+            input_bias=[-np.pi / 6, 0.0],
+        )
 
     @staticmethod
     def hull_points():
-        return np.array([
-            [0.6, 0.1],
-            [-1.1, 0.1],
-            [-1.1, -0.0226],
-            [-np.pi/6, -0.062],
-            [0.6, -0.0574],
-        ])
-
-    
+        return np.array(
+            [
+                [0.6, 0.1],
+                [-1.1, 0.1],
+                [-1.1, -0.0226],
+                [-np.pi / 6, -0.062],
+                [0.6, -0.0574],
+            ]
+        )

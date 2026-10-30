@@ -23,37 +23,44 @@ from gpshield.common.distributions import (
     MultivariateNormalDiag,
 )
 
+
 def summary_stats(values, prefix=None):
     stats = {
-        'mean': np.mean(values),
-        'std': np.std(values),
-        'max': np.max(values),
-        'min': np.min(values),
-        'mag': np.max(np.abs(values)),
+        "mean": np.mean(values),
+        "std": np.std(values),
+        "max": np.max(values),
+        "min": np.min(values),
+        "mag": np.max(np.abs(values)),
     }
     if prefix:
-        stats = {f"{prefix}_{k}": v for k, v in stats.items() }
+        stats = {f"{prefix}_{k}": v for k, v in stats.items()}
     return stats
 
-@jit    
+
+@jit
 def compute_gradient_norm(grad):
     squared_norms = tree_map(lambda g: jnp.sum(jnp.square(g)), grad)
     total_squared_norm = tree_reduce(jnp.add, squared_norms, initializer=0.0)
     return jnp.sqrt(total_squared_norm)
 
+
 def symlog(x):
-  return np.sign(x) * np.log(1 + np.abs(x))
+    return np.sign(x) * np.log(1 + np.abs(x))
+
 
 def symexp(x):
-  return np.sign(x) * (np.exp(np.abs(x)) - 1)
+    return np.sign(x) * (np.exp(np.abs(x)) - 1)
+
 
 @jit
 def jsymlog(x):
-  return jnp.sign(x) * jnp.log(1 + jnp.abs(x))
+    return jnp.sign(x) * jnp.log(1 + jnp.abs(x))
+
 
 @jit
 def jsymexp(x):
-  return jnp.sign(x) * (jnp.exp(jnp.abs(x)) - 1)
+    return jnp.sign(x) * (jnp.exp(jnp.abs(x)) - 1)
+
 
 def normalize_observation(obs, low, high, dim=0):
     finite_dims = np.isfinite(low) * np.isfinite(high)
@@ -62,19 +69,34 @@ def normalize_observation(obs, low, high, dim=0):
     high = high[finite_dims].reshape(shape)
     normalized_obs = obs.copy()
     normalized_obs = np.moveaxis(normalized_obs, dim, 0)
-    normalized_obs[finite_dims] = 2 * (normalized_obs[finite_dims] - low) / (high - low) -1
+    normalized_obs[finite_dims] = (
+        2 * (normalized_obs[finite_dims] - low) / (high - low) - 1
+    )
     return np.moveaxis(normalized_obs, 0, dim)
+
 
 class ValueTrainState(TrainState):
     target_params: Any
 
-class RolloutBuffer():
 
-    def __init__(self, buffer_size, observation_space, action_space, n_envs, critics, device='auto', gae_lambda={'extr': 1., 'intr': 1.}, gamma={'extr': 0.99, 'intr': 0.99}):
+class RolloutBuffer:
+    def __init__(
+        self,
+        buffer_size,
+        observation_space,
+        action_space,
+        n_envs,
+        critics,
+        device="auto",
+        gae_lambda={"extr": 1.0, "intr": 1.0},
+        gamma={"extr": 0.99, "intr": 0.99},
+    ):
 
         assert type(buffer_size) is int
         assert isinstance(observation_space, gymnasium.spaces.Box)
-        assert isinstance(action_space, gymnasium.spaces.Box) or isinstance(action_space, gymnasium.spaces.Discrete)
+        assert isinstance(action_space, gymnasium.spaces.Box) or isinstance(
+            action_space, gymnasium.spaces.Discrete
+        )
         assert type(n_envs) is int
         assert type(device) is str
         assert type(n_envs) is int
@@ -104,14 +126,32 @@ class RolloutBuffer():
 
     def reset(self):
 
-        self.observations = np.zeros((self.buffer_size, self.n_envs, *self.input_shape), dtype=np.float64)
-        self.actions = np.zeros((self.buffer_size, self.n_envs, self.action_dim), dtype=np.float64)
-        self.rewards = {k: np.zeros((self.buffer_size, self.n_envs), dtype=np.float64) for k in self.critics}
-        self.returns = {k: np.zeros((self.buffer_size, self.n_envs), dtype=np.float64) for k in self.critics}
-        self.episode_starts = np.zeros((self.buffer_size, self.n_envs), dtype=np.float64)
-        self.values = {k: np.zeros((self.buffer_size, self.n_envs), dtype=np.float64) for k in self.critics}
+        self.observations = np.zeros(
+            (self.buffer_size, self.n_envs, *self.input_shape), dtype=np.float64
+        )
+        self.actions = np.zeros(
+            (self.buffer_size, self.n_envs, self.action_dim), dtype=np.float64
+        )
+        self.rewards = {
+            k: np.zeros((self.buffer_size, self.n_envs), dtype=np.float64)
+            for k in self.critics
+        }
+        self.returns = {
+            k: np.zeros((self.buffer_size, self.n_envs), dtype=np.float64)
+            for k in self.critics
+        }
+        self.episode_starts = np.zeros(
+            (self.buffer_size, self.n_envs), dtype=np.float64
+        )
+        self.values = {
+            k: np.zeros((self.buffer_size, self.n_envs), dtype=np.float64)
+            for k in self.critics
+        }
         self.log_probs = np.zeros((self.buffer_size, self.n_envs), dtype=np.float64)
-        self.advantages = {k: np.zeros((self.buffer_size, self.n_envs), dtype=np.float64) for k in self.critics}
+        self.advantages = {
+            k: np.zeros((self.buffer_size, self.n_envs), dtype=np.float64)
+            for k in self.critics
+        }
         self.weights = np.ones((self.buffer_size, self.n_envs), dtype=np.float64)
         self.pos = 0
         self.full = False
@@ -122,7 +162,6 @@ class RolloutBuffer():
             last_value = {k: np.array(0.0) for k in self.critics}
 
         for k in self.critics:
-
             last_gae_lam = 0
 
             for step in reversed(range(self.buffer_size)):
@@ -130,10 +169,22 @@ class RolloutBuffer():
                     next_non_terminal = 1.0 - done.astype(np.float64)
                     next_value = last_value[k]
                 else:
-                    next_non_terminal = 1.0 - self.episode_starts[step + 1].astype(np.float64)
+                    next_non_terminal = 1.0 - self.episode_starts[step + 1].astype(
+                        np.float64
+                    )
                     next_value = self.values[k][step + 1]
-                delta = self.rewards[k][step] + self.gamma[k] * next_value * next_non_terminal - self.values[k][step]
-                last_gae_lam = delta + self.gamma[k] * self.gae_lambda[k] * next_non_terminal * last_gae_lam
+                delta = (
+                    self.rewards[k][step]
+                    + self.gamma[k] * next_value * next_non_terminal
+                    - self.values[k][step]
+                )
+                last_gae_lam = (
+                    delta
+                    + self.gamma[k]
+                    * self.gae_lambda[k]
+                    * next_non_terminal
+                    * last_gae_lam
+                )
                 self.advantages[k][step] = last_gae_lam
 
             self.returns[k] = self.advantages[k] + self.values[k]
@@ -162,7 +213,7 @@ class RolloutBuffer():
         self.pos += 1
         if self.pos == self.buffer_size:
             self.full = True
-        
+
         return True
 
     def get(self, key, batch_size):
@@ -170,23 +221,26 @@ class RolloutBuffer():
         indices = jr.permutation(key, self.buffer_size)
 
         if batch_size is None:
-            batch_size=self.buffer_size
+            batch_size = self.buffer_size
 
         start_idx = 0
         while start_idx < self.buffer_size:
-            yield self._get_samples(indices[start_idx: start_idx + batch_size])
+            yield self._get_samples(indices[start_idx : start_idx + batch_size])
             start_idx += batch_size
 
     def _get_samples(self, batch_inds):
-        data = (self.observations[batch_inds].reshape(-1, *self.input_shape),
-                self.actions[batch_inds].reshape(-1, self.action_dim),
-                {k: self.rewards[k][batch_inds].flatten() for k in self.critics},
-                {k: self.values[k][batch_inds].flatten() for k in self.critics},
-                {k: self.returns[k][batch_inds].flatten() for k in self.critics},
-                {k: self.advantages[k][batch_inds].flatten() for k in self.critics},
-                self.log_probs[batch_inds].flatten(),
-                self.weights[batch_inds].flatten())
+        data = (
+            self.observations[batch_inds].reshape(-1, *self.input_shape),
+            self.actions[batch_inds].reshape(-1, self.action_dim),
+            {k: self.rewards[k][batch_inds].flatten() for k in self.critics},
+            {k: self.values[k][batch_inds].flatten() for k in self.critics},
+            {k: self.returns[k][batch_inds].flatten() for k in self.critics},
+            {k: self.advantages[k][batch_inds].flatten() for k in self.critics},
+            self.log_probs[batch_inds].flatten(),
+            self.weights[batch_inds].flatten(),
+        )
         return data
+
 
 class Flatten(nn.Module):
     """
@@ -196,6 +250,7 @@ class Flatten(nn.Module):
     @nn.compact
     def __call__(self, x: jnp.ndarray) -> jnp.ndarray:
         return x.reshape((x.shape[0], -1))
+
 
 class Critic(nn.Module):
     n_units: int = 256
@@ -223,7 +278,6 @@ class Actor(nn.Module):
     max_num_choices: int = 0
     split_indices: np.ndarray = field(default_factory=lambda: np.array([]))
 
-
     def get_std(self) -> jnp.ndarray:
         # Make it work with gSDE
         return jnp.array(0.0)
@@ -246,8 +300,12 @@ class Actor(nn.Module):
         action_logits = nn.Dense(self.action_dim)(x)
         if self.num_discrete_choices is None:
             # Continuous actions
-            log_std = self.param("log_std", constant(self.log_std_init), (self.action_dim,))
-            dist = MultivariateNormalDiag(loc=action_logits, scale_diag=jnp.exp(log_std))
+            log_std = self.param(
+                "log_std", constant(self.log_std_init), (self.action_dim,)
+            )
+            dist = MultivariateNormalDiag(
+                loc=action_logits, scale_diag=jnp.exp(log_std)
+            )
         elif isinstance(self.num_discrete_choices, int):
             dist = Categorical(logits=action_logits)
         else:
@@ -276,7 +334,6 @@ class Actor(nn.Module):
 
 
 class A2C_Agent(JAXAgent):
-
     def __init__(
         self,
         key,
@@ -289,14 +346,16 @@ class A2C_Agent(JAXAgent):
         actor_kwargs={},
         actor_opt={},
         ent_coef=0.0,
-        scales={'extr': 1.0, 'intr': 0.0},
+        scales={"extr": 1.0, "intr": 0.0},
         critic_kwargs={},
-        device='auto',
+        device="auto",
     ):
 
         assert jax.dtypes.issubdtype(key.dtype, jax.dtypes.prng_key)
         assert isinstance(observation_space, gymnasium.spaces.Box)
-        assert isinstance(action_space, gymnasium.spaces.Box) or isinstance(action_space, gymnasium.spaces.Discrete)
+        assert isinstance(action_space, gymnasium.spaces.Box) or isinstance(
+            action_space, gymnasium.spaces.Discrete
+        )
         assert type(n_envs) is int
         assert type(n_steps) is int
         assert type(normalize_obs) is bool
@@ -304,9 +363,9 @@ class A2C_Agent(JAXAgent):
         assert isinstance(actor_kwargs, dict)
         assert isinstance(actor_opt, dict)
         assert type(ent_coef) is float
-        assert isinstance(scales, dict) and ('extr' in scales) and ('intr' in scales)
+        assert isinstance(scales, dict) and ("extr" in scales) and ("intr" in scales)
         assert type(critic_kwargs) is dict
-        assert (type(device) is str) and (device in ['cpu', 'gpu', 'auto'])
+        assert (type(device) is str) and (device in ["cpu", "gpu", "auto"])
 
         self.observation_space = observation_space
         self.action_space = action_space
@@ -334,9 +393,11 @@ class A2C_Agent(JAXAgent):
             self.action_dim = int(np.prod(self.action_space.shape))
         elif isinstance(self.action_space, gymnasium.spaces.Discrete):
             self.action_dim = int(self.action_space.n)
-            self.actor_kwargs.update({
-                "num_discrete_choices": self.action_dim,
-            })
+            self.actor_kwargs.update(
+                {
+                    "num_discrete_choices": self.action_dim,
+                }
+            )
         else:
             raise NotImplementedError
 
@@ -346,31 +407,31 @@ class A2C_Agent(JAXAgent):
 
     def _setup_buffer(self):
         self.rollout_buffer = RolloutBuffer(
-            self.n_steps, 
-            self.observation_space, 
-            self.action_space, 
+            self.n_steps,
+            self.observation_space,
+            self.action_space,
             self.n_envs,
             self.critics,
-            device=self.device, 
-            gae_lambda=self.gae_lambda, 
-            gamma=self.gamma
+            device=self.device,
+            gae_lambda=self.gae_lambda,
+            gamma=self.gamma,
         )
 
     def _setup_optimizer(self):
 
         self.optimizer = {}
 
-        if self.actor_opt.opt == 'adam':
-            self.optimizer['actor'] = optax.adam
-        elif self.actor_opt.opt == 'rms_prop':
-            self.optimizer['actor'] = optax.rmsprop
+        if self.actor_opt.opt == "adam":
+            self.optimizer["actor"] = optax.adam
+        elif self.actor_opt.opt == "rms_prop":
+            self.optimizer["actor"] = optax.rmsprop
         else:
             raise NotImplementedError
 
         for key in self.critics:
-            if self.critic_kwargs[key].critic_opt.opt == 'adam':
+            if self.critic_kwargs[key].critic_opt.opt == "adam":
                 self.optimizer[f"{key}_critic"] = optax.adam
-            elif self.critic_kwargs[key].critic_opt.opt == 'rms_prop':
+            elif self.critic_kwargs[key].critic_opt.opt == "rms_prop":
                 self.optimizer[f"{key}_critic"] = optax.rmsprop
             else:
                 raise NotImplementedError
@@ -385,10 +446,10 @@ class A2C_Agent(JAXAgent):
 
         self.actor = Actor(
             self.action_dim,
-            #n_units=self.n_units,
-            #log_std_init=self.log_std_init,
-            #activation_fn=self.activation_fn,
-            **self.actor_kwargs
+            # n_units=self.n_units,
+            # log_std_init=self.log_std_init,
+            # activation_fn=self.activation_fn,
+            **self.actor_kwargs,
         )
 
         self.actor.reset_noise = self.reset_noise
@@ -398,9 +459,8 @@ class A2C_Agent(JAXAgent):
             params=self.actor.init(actor_key, obs),
             tx=optax.chain(
                 optax.clip_by_global_norm(self.actor_opt.max_grad_norm),
-                self.optimizer['actor'](
-                    learning_rate=self.actor_opt.learning_rate, 
-                    eps=self.actor_opt.eps
+                self.optimizer["actor"](
+                    learning_rate=self.actor_opt.learning_rate, eps=self.actor_opt.eps
                 ),
             ),
         )
@@ -414,10 +474,12 @@ class A2C_Agent(JAXAgent):
                 apply_fn=self.vf[key].apply,
                 params=params,
                 tx=optax.chain(
-                    optax.clip_by_global_norm(self.critic_kwargs[key].critic_opt.max_grad_norm),
+                    optax.clip_by_global_norm(
+                        self.critic_kwargs[key].critic_opt.max_grad_norm
+                    ),
                     self.optimizer[f"{key}_critic"](
-                        learning_rate=self.critic_kwargs[key].critic_opt.learning_rate, 
-                        eps=self.critic_kwargs[key].critic_opt.eps
+                        learning_rate=self.critic_kwargs[key].critic_opt.learning_rate,
+                        eps=self.critic_kwargs[key].critic_opt.eps,
                     ),
                 ),
                 target_params=params,
@@ -456,16 +518,20 @@ class A2C_Agent(JAXAgent):
     @jit
     def update_critic(vf_state, observations, returns, tau, weights, slow_reg_coef):
 
-        target_vf_values = vf_state.apply_fn(vf_state.target_params, observations).flatten()
+        target_vf_values = vf_state.apply_fn(
+            vf_state.target_params, observations
+        ).flatten()
 
         def polyak_update(target_params, source_params, tau=0.02):
-            return jax.tree_util.tree_map(lambda t, s: (1 - tau) * t + tau * s, target_params, source_params)
+            return jax.tree_util.tree_map(
+                lambda t, s: (1 - tau) * t + tau * s, target_params, source_params
+            )
 
         def loss(params):
             vf_values = vf_state.apply_fn(params, observations).flatten()
 
-            losses = (jsymlog(returns) - vf_values)**2
-            reg = (vf_values - target_vf_values)**2
+            losses = (jsymlog(returns) - vf_values) ** 2
+            reg = (vf_values - target_vf_values) ** 2
             losses += reg * slow_reg_coef
             return (losses * weights).mean()
 
@@ -478,7 +544,9 @@ class A2C_Agent(JAXAgent):
 
     def act(self, key, obs, deterministic=True):
         if self.normalize_obs:
-            obs = normalize_observation(obs, self.observation_space.low, self.observation_space.high)
+            obs = normalize_observation(
+                obs, self.observation_space.low, self.observation_space.high
+            )
         if deterministic:
             action = self.select_action(self.actor_state, obs.reshape(1, -1))
         else:
@@ -510,13 +578,20 @@ class A2C_Agent(JAXAgent):
             obs = obs.reshape(self.n_envs, -1)
 
             if self.normalize_obs:
-                obs = normalize_observation(obs, self.observation_space.low, self.observation_space.high, dim=1)
+                obs = normalize_observation(
+                    obs, self.observation_space.low, self.observation_space.high, dim=1
+                )
 
             action, log_prob = self.predict_all(self.noise_key, obs)
-            
+
             action = np.array(action)
             log_prob = np.array(log_prob)
-            value = {k: np.array(self.vf_state[k].apply_fn(self.vf_state[k].params, obs).flatten()) for k in self.critics}
+            value = {
+                k: np.array(
+                    self.vf_state[k].apply_fn(self.vf_state[k].params, obs).flatten()
+                )
+                for k in self.critics
+            }
             value = {k: symexp(v) for k, v in value.items()}
 
             if "weight" in info.keys():
@@ -525,7 +600,9 @@ class A2C_Agent(JAXAgent):
                 weight = np.ones(len(obs))
 
             if isinstance(self.action_space, gymnasium.spaces.Box):
-                clipped_action = np.clip(action, self.action_space.low, self.action_space.high)
+                clipped_action = np.clip(
+                    action, self.action_space.low, self.action_space.high
+                )
 
             new_obs, reward, terminated, truncated, info = env.step(clipped_action)
             done = np.logical_or(terminated, truncated)
@@ -538,7 +615,7 @@ class A2C_Agent(JAXAgent):
                 # Reshape in case of discrete action
                 action = action.reshape(-1, 1)
 
-            #if done: #and (info['terminal']==False) and (info['truncated']==True):
+            # if done: #and (info['terminal']==False) and (info['truncated']==True):
             #    truncated_obs = new_obs
             #    truncated_value = np.array(
             #            self.vf.apply(  # type: ignore[union-attr]
@@ -551,30 +628,31 @@ class A2C_Agent(JAXAgent):
             obs = obs.reshape(obs_shape)
 
             self.rollout_buffer.add(
-                obs,
-                action,
-                reward,
-                episode_start,
-                value,
-                log_prob,
-                weight
+                obs, action, reward, episode_start, value, log_prob, weight
             )
 
             obs = new_obs
             episode_start = done
-                
-        assert isinstance(new_obs, np.ndarray) 
+
+        assert isinstance(new_obs, np.ndarray)
 
         new_obs = new_obs.reshape(self.n_envs, -1)
 
         if self.normalize_obs:
-            new_obs = normalize_observation(new_obs, self.observation_space.low, self.observation_space.high, dim=1)
+            new_obs = normalize_observation(
+                new_obs, self.observation_space.low, self.observation_space.high, dim=1
+            )
 
-        last_value = {k: np.array(self.vf[k].apply(self.vf_state[k].params, new_obs).flatten()) for k in self.critics}
+        last_value = {
+            k: np.array(self.vf[k].apply(self.vf_state[k].params, new_obs).flatten())
+            for k in self.critics
+        }
         last_value = {k: symexp(v) for k, v in last_value.items()}
         done = np.array(done)
 
-        self.rollout_buffer.compute_returns_and_advantages(last_value=last_value, done=done)
+        self.rollout_buffer.compute_returns_and_advantages(
+            last_value=last_value, done=done
+        )
 
         # compute returns and advantages
         return True
@@ -591,29 +669,45 @@ class A2C_Agent(JAXAgent):
         }
 
         for key in self.critics:
-            stats.update({
-                f"{key}_ret": Summary_Stats(prefix=f"{key}_ret"),
-                f"{key}_val": Summary_Stats(prefix=f"{key}_val"),
-                f"{key}_rew": Summary_Stats(prefix=f"{key}_rew"),
-                f"{key}_adv": Summary_Stats(prefix=f"{key}_adv"),
-                f'{key}_critic_grad_norm': Summary_Stats(prefix=f'{key}_critic_grad_norm'),
-                f'{key}_critic_loss': Summary_Stats(prefix=f'{key}_critic_loss'),
-            })
+            stats.update(
+                {
+                    f"{key}_ret": Summary_Stats(prefix=f"{key}_ret"),
+                    f"{key}_val": Summary_Stats(prefix=f"{key}_val"),
+                    f"{key}_rew": Summary_Stats(prefix=f"{key}_rew"),
+                    f"{key}_adv": Summary_Stats(prefix=f"{key}_adv"),
+                    f"{key}_critic_grad_norm": Summary_Stats(
+                        prefix=f"{key}_critic_grad_norm"
+                    ),
+                    f"{key}_critic_loss": Summary_Stats(prefix=f"{key}_critic_loss"),
+                }
+            )
 
             if self.normalize_adv:
-                stats.update({
-                    f"{key}_normed_adv": Summary_Stats(prefix=f"{key}_normed_adv"),
-                })
+                stats.update(
+                    {
+                        f"{key}_normed_adv": Summary_Stats(prefix=f"{key}_normed_adv"),
+                    }
+                )
             else:
-                stats.update({
-                    f"{key}_normed_ret": Summary_Stats(prefix=f"{key}_normed_ret"),
-                    f"{key}_normed_val": Summary_Stats(prefix=f"{key}_normed_val"),
-                })
+                stats.update(
+                    {
+                        f"{key}_normed_ret": Summary_Stats(prefix=f"{key}_normed_ret"),
+                        f"{key}_normed_val": Summary_Stats(prefix=f"{key}_normed_val"),
+                    }
+                )
 
         self.key, subkey = jr.split(self.key)
         for rollout_data in self.rollout_buffer.get(subkey, None):
-
-            observations, actions, rewards, values, returns, _, old_log_probs, weights = rollout_data
+            (
+                observations,
+                actions,
+                rewards,
+                values,
+                returns,
+                _,
+                old_log_probs,
+                weights,
+            ) = rollout_data
 
             advs = []
             total = sum(self.scales[k] for k in self.critics)
@@ -637,7 +731,7 @@ class A2C_Agent(JAXAgent):
                     offset, invscale = self.norms[key](ret)
                     normed_ret = (ret - offset) / invscale
                     normed_val = (val - offset) / invscale
-                    adv = (normed_ret - normed_val) 
+                    adv = normed_ret - normed_val
                     advs.append(adv * self.scales[key] / total)
                     stats[f"{key}_normed_ret"].update(normed_ret)
                     stats[f"{key}_normed_val"].update(normed_val)
@@ -648,16 +742,30 @@ class A2C_Agent(JAXAgent):
             stats["actions"].update(actions)
             stats["weights"].update(weights)
 
-            pg_loss, self.actor_state, actor_grad_norm = self.update_actor(self.actor_state, observations, actions, advantages, self.ent_coef, weights)
+            pg_loss, self.actor_state, actor_grad_norm = self.update_actor(
+                self.actor_state,
+                observations,
+                actions,
+                advantages,
+                self.ent_coef,
+                weights,
+            )
 
-            stats['actor_grad_norm'].update(actor_grad_norm)
-            stats['actor_loss'].update(pg_loss)
+            stats["actor_grad_norm"].update(actor_grad_norm)
+            stats["actor_loss"].update(pg_loss)
 
             for key in self.critics:
-                value_loss, self.vf_state[key], vf_grad_norm = self.update_critic(self.vf_state[key], observations, returns[key], self.polyak_tau[key], weights, self.slow_reg_coef[key])
+                value_loss, self.vf_state[key], vf_grad_norm = self.update_critic(
+                    self.vf_state[key],
+                    observations,
+                    returns[key],
+                    self.polyak_tau[key],
+                    weights,
+                    self.slow_reg_coef[key],
+                )
 
-                stats[f'{key}_critic_grad_norm'].update(vf_grad_norm)
-                stats[f'{key}_critic_loss'].update(value_loss)
+                stats[f"{key}_critic_grad_norm"].update(vf_grad_norm)
+                stats[f"{key}_critic_loss"].update(value_loss)
 
         return stats
 
@@ -679,7 +787,7 @@ class A2C_Agent(JAXAgent):
     @jit
     def select_action(actor_state, obs):
         return actor_state.apply_fn(actor_state.params, obs).mode()
-        
+
     @staticmethod
     @jit
     def sample_action(key, actor_state, obs):

@@ -1,8 +1,12 @@
-# GP-Shield
+# A2C-GP-Shield
 
-Safe reinforcement learning via recovery-based shielding with Gaussian Process dynamics models.
+The code repository for **Safe reinforcement learning via recovery-based shielding with Gaussian Process dynamics models.**. Full details can be found in:
 
-This repository is the training code for the paper "Safe Reinforcement Learning via Recovery-based Shielding with Gaussian Process Dynamics Models". Environments use the [Gymnasium](https://gymnasium.farama.org/) interface. The shield is a Gaussian-process dynamics model that overrides the learned policy with a safe backup controller.
+> **Safe reinforcement learning via recovery-based shielding with Gaussian Process dynamics models.**
+> Alexander W. Goodall, Francesco Belardinelli
+> arXiv: [https://arxiv.org/abs/2602.12444](https://arxiv.org/abs/2602.12444)
+
+*Disclaimer:* This version of the code uses a newer software stack (`gpjax==1.0.0`, `jax>=0.7.0`, `numpy>=2.0.0`) compared to the code used to collect the results reported in teh paper, the results therefore may not be fully repoduceable on a per-seed basis. 
 
 ## Quick Start
 
@@ -14,8 +18,14 @@ Python 3.12 is required.
 
 #### Installation with conda
 
-- Install conda, for example via [Miniconda](https://docs.anaconda.com/miniconda/).
-- Clone the repo and create the environment from the repository root:
+- Install conda, for example via [anaconda](https://anaconda.org/channels/anaconda/packages/conda/overview).
+- Clone the repo:
+
+```bash
+git clone https://github.com/sacktock/A2C-GP-Shield.git
+```
+
+- Create a conda virtual environment
 
 ```bash
 conda env create --name gpshield --file conda-environment.yaml
@@ -28,7 +38,7 @@ conda activate gpshield
 pip install -e .
 ```
 
-`pip install -e .` installs the dependencies declared in `pyproject.toml`. `requirements.txt` lists the same base dependencies and is kept in lockstep with that file.
+> `pip install -e .` installs the dependencies declared in `pyproject.toml`. `requirements.txt` lists the same base dependencies and is kept in lockstep with that file.
 
 #### Installation with uv
 
@@ -38,27 +48,9 @@ From the repository root, `uv sync` installs the base dependency set (CPU JAX):
 uv sync
 ```
 
-Install the test extra as well:
-
-```bash
-uv sync --group dev
-```
-
-GPU JAX is a separate dependency group. Pick the one that matches your driver:
-
-```bash
-uv sync --group cuda12
-```
-
-```bash
-uv sync --group cuda13
-```
-
-`cuda12` and `cuda13` conflict with each other. Do not enable both.
-
 #### Enabling GPU acceleration with JAX (optional)
 
-GP-Shield uses [JAX](https://docs.jax.dev/) for the dynamics model and the actor-critic. CPU is enough to run the environments and a short training job.
+GP-Shield uses [JAX](https://docs.jax.dev/) for the dynamics model and the actor-critic. CPU is enough to smoke test the environments and run a short training job.
 
 **macOS and Windows:** use the CPU install above. No extra JAX step is required.
 
@@ -71,8 +63,6 @@ uv sync --group cuda12
 ```bash
 uv sync --group cuda13
 ```
-
-Direct dependencies have lower bounds. `gpjax` stays pinned at `1.0.0`, which still requires `jax<0.11`, so the lock resolves `jax` and `jaxlib` to 0.10.2 (the newest release inside that bound, and the one that ships both CUDA extras). `numpyro` is at least 0.21 so it imports against that JAX. `tensorflow` resolves to 2.21.0.
 
 MuJoCo (used by Hopper) is installed through the `gymnasium[mujoco]` extra. On a headless Linux machine, also install OSMesa and select it, or `Hopper-v5` fails while importing its renderer:
 

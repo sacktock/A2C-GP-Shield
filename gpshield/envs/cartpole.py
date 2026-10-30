@@ -7,12 +7,12 @@ permalink: https://perma.cc/C9ZM-652R
 import math
 import gymnasium
 import numpy as np
-from gpshield.envs.base import BaseEnv 
+from gpshield.envs.base import BaseEnv
 from gpshield.agents import Linear_Agent
 from scipy.spatial import ConvexHull
 
-class ContinuousCartPole(BaseEnv):
 
+class ContinuousCartPole(BaseEnv):
     metadata = {
         "render_modes": ["rgb_array"],
         "render_fps": 50,
@@ -33,7 +33,7 @@ class ContinuousCartPole(BaseEnv):
         self.kinematics_integrator = "euler"
 
         # Angle at which to fail the episode
-        self.theta_threshold_radians = 0.2095 # ~ 3/4 pi radians
+        self.theta_threshold_radians = 0.2095  # ~ 3/4 pi radians
         self.x_threshold = 2.4
 
         self.x_vel_threshold = 2.0
@@ -46,15 +46,25 @@ class ContinuousCartPole(BaseEnv):
         # is still within bounds.
         high = np.array(
             [
-                self.x_threshold*2,
-                self.x_vel_threshold*2, #np.finfo(np.float32).max,
-                self.theta_threshold_radians*2,
-                self.theta_vel_threshold*2, #np.finfo(np.float32).max,
+                self.x_threshold * 2,
+                self.x_vel_threshold * 2,  # np.finfo(np.float32).max,
+                self.theta_threshold_radians * 2,
+                self.theta_vel_threshold * 2,  # np.finfo(np.float32).max,
             ],
-            dtype=np.float32
+            dtype=np.float32,
         )
 
-        super().__init__((4,), (1,), -high, high, min_action, max_action, max_episode_steps=max_episode_steps, continuous=True, **kwargs)
+        super().__init__(
+            (4,),
+            (1,),
+            -high,
+            high,
+            min_action,
+            max_action,
+            max_episode_steps=max_episode_steps,
+            continuous=True,
+            **kwargs,
+        )
 
         # rendering stuff
         self.render_mode = "rgb_array"
@@ -74,10 +84,10 @@ class ContinuousCartPole(BaseEnv):
         # For the interested reader:
         # https://coneural.org/florian/papers/05_cart_pole.pdf
         temp = (
-            force + self.polemass_length * theta_dot ** 2 * sintheta
+            force + self.polemass_length * theta_dot**2 * sintheta
         ) / self.total_mass
         thetaacc = (self.gravity * sintheta - costheta * temp) / (
-            self.length * (4.0 / 3.0 - self.masspole * costheta ** 2 / self.total_mass)
+            self.length * (4.0 / 3.0 - self.masspole * costheta**2 / self.total_mass)
         )
         xacc = temp - self.polemass_length * thetaacc * costheta / self.total_mass
 
@@ -104,7 +114,6 @@ class ContinuousCartPole(BaseEnv):
             )
             return
 
-
         try:
             import pygame
             from pygame import gfxdraw
@@ -112,7 +121,6 @@ class ContinuousCartPole(BaseEnv):
             raise gymnasium.error.DependencyNotInstalled(
                 'pygame is not installed, run `pip install "gymnasium[classic-control]"`'
             )
-
 
         screen_width = 600
         screen_height = 400
@@ -212,31 +220,37 @@ class ContinuousCartPole(BaseEnv):
 
     @property
     def _init_state_function(self):
-        return lambda: self.np_random.uniform(low=np.array([-0.05, -0.05, -0.05, -0.05]), high=np.array([0.05, 0.05, 0.05, 0.05]), size=(4,))
+        return lambda: self.np_random.uniform(
+            low=np.array([-0.05, -0.05, -0.05, -0.05]),
+            high=np.array([0.05, 0.05, 0.05, 0.05]),
+            size=(4,),
+        )
 
     @property
     def _reward_function(self):
         if self.reward_id == "rew_v1":
             return lambda s, a, ns: float(self._safe(ns))
         elif self.reward_id == "rew_v2":
-            return lambda s, a, ns: float(ns[0] >= 0.1) * float(self._safe(ns)) 
+            return lambda s, a, ns: float(ns[0] >= 0.1) * float(self._safe(ns))
         elif self.reward_id == "rew_v3":
-            return lambda s, a, ns: float(ns[1] >= 0.1) * float(self._safe(ns)) 
+            return lambda s, a, ns: float(ns[1] >= 0.1) * float(self._safe(ns))
         else:
             raise NotImplementedError
 
-    @property 
+    @property
     def _terminal_function(self):
         return lambda s: not self._safe(s)
 
     @property
     def _safety_constraints(self):
         return {
-            'boundaries': [
-                np.array([[-self.theta_threshold_radians, self.theta_threshold_radians]]),
+            "boundaries": [
+                np.array(
+                    [[-self.theta_threshold_radians, self.theta_threshold_radians]]
+                ),
             ],
         }
-        
+
     @property
     def _safety_axes(self):
         return np.array([2])
@@ -247,34 +261,37 @@ class ContinuousCartPole(BaseEnv):
 
     @property
     def _stable_axes(self):
-        return np.array([1,2,3])
+        return np.array([1, 2, 3])
 
     @property
     def _backup(self):
-        return Linear_Agent(None, 
-                self.observation_space.shape[0], 
-                self.action_space.shape[0], 
-                action_limit=1.0, 
-                weights=[[0.7488, 1.2280, 7.2758, 1.7787]],
-            )
+        return Linear_Agent(
+            None,
+            self.observation_space.shape[0],
+            self.action_space.shape[0],
+            action_limit=1.0,
+            weights=[[0.7488, 1.2280, 7.2758, 1.7787]],
+        )
 
     @staticmethod
     def hull_points():
         return np.array(
-            [[ 0.4875, -0.515 , -0.0118,  0.1203],
-            [ 0.4304,  0.4783, -0.0806, -0.3115],
-            [-0.3464, -0.6113,  0.1533, -0.0172],
-            [-0.4035,  0.382 ,  0.0845, -0.4491],
-            [ 0.4003, -0.3865, -0.1084,  0.4428],
-            [ 0.3432,  0.6067, -0.1773,  0.011 ],
-            [-0.4336, -0.4828,  0.0566,  0.3052],
-            [-0.4907,  0.5104, -0.0122, -0.1266],
-            [ 0.4907, -0.5104,  0.0122,  0.1266],
-            [ 0.4336,  0.4828, -0.0566, -0.3052],
-            [ 0.3432, -0.6067,  0.1773, -0.011 ],
-            [-0.4003,  0.3865,  0.1084, -0.4428],
-            [ 0.4035, -0.382 , -0.0845,  0.4491],
-            [ 0.3464,  0.6113, -0.1533,  0.0172],
-            [-0.4304, -0.4783,  0.0806,  0.3115],
-            [-0.4875,  0.515 ,  0.0118, -0.1203]]
-       )[:, 1:]
+            [
+                [0.4875, -0.515, -0.0118, 0.1203],
+                [0.4304, 0.4783, -0.0806, -0.3115],
+                [-0.3464, -0.6113, 0.1533, -0.0172],
+                [-0.4035, 0.382, 0.0845, -0.4491],
+                [0.4003, -0.3865, -0.1084, 0.4428],
+                [0.3432, 0.6067, -0.1773, 0.011],
+                [-0.4336, -0.4828, 0.0566, 0.3052],
+                [-0.4907, 0.5104, -0.0122, -0.1266],
+                [0.4907, -0.5104, 0.0122, 0.1266],
+                [0.4336, 0.4828, -0.0566, -0.3052],
+                [0.3432, -0.6067, 0.1773, -0.011],
+                [-0.4003, 0.3865, 0.1084, -0.4428],
+                [0.4035, -0.382, -0.0845, 0.4491],
+                [0.3464, 0.6113, -0.1533, 0.0172],
+                [-0.4304, -0.4783, 0.0806, 0.3115],
+                [-0.4875, 0.515, 0.0118, -0.1203],
+            ]
+        )[:, 1:]
