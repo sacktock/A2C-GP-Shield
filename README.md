@@ -63,11 +63,11 @@ GP-Shield uses [JAX](https://docs.jax.dev/) for the dynamics model and the actor
 **Linux x86_64/aarch64** and **Windows WSL2 x86_64**: We strongly recommend using [Ubuntu 22.04](https://apps.microsoft.com/detail/9pn20msr04dw?hl=en-GB&gl=BE) or similar, jax and jaxlib should already be installed. You need to reinstall [JAX](https://docs.jax.dev/) based on your cuda driver compatibility. Do not use the `-U` option here as it may break earlier dependencies!
 
 ```bash
-pip install "jax[cuda13]"
+pip install "jax[cuda13]>=0.7.0"
 ```
 
 ```bash
-pip install "jax[cuda12]"
+pip install "jax[cuda12]>=0.7.0"
 ```
 
 
